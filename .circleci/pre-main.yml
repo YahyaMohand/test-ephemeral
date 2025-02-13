@@ -29,7 +29,7 @@ workflows:
       - hold-for-approval:
           type: approval
           requires:
-            - pre-check
+            - pre-checks
       - continue-to-staging:
           requires:
             - hold-for-approval
