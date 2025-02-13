@@ -13,18 +13,11 @@ jobs:
       - checkout
       - circleci-cli/install
       - run:
-          name: Set Environment
+          name: Process Pre-checks Config
           command: |
-            chmod u+x .circleci/use_env.sh
-            ./.circleci/use_env.sh
-            source $BASH_ENV
-            echo "Using config: $CONFIG_PATH"
-            circleci config process "$CONFIG_PATH" > generated_config.yml
-      - run:
-          name: Debug - Print Selected Config
-          command: cat generated_config.yml
+            circleci config process .circleci/pre-checks.yml > generated_pre_checks.yml
       - continuation/continue:
-          configuration_path: generated_config.yml
+          configuration_path: generated_pre_checks.yml
 
 workflows:
   run-environment-selector:

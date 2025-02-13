@@ -1,5 +1,9 @@
 version: 2.1
 
+orbs:
+  continuation: circleci/continuation@1
+  circleci-cli: circleci/circleci-cli@0.1.9
+
 executors:
   python-executor:
     docker:
@@ -13,9 +17,15 @@ jobs:
       - run:
           name: Run main.py
           command: python main.py
+      - circleci-cli/install
+      - run:
+          name: Process Pre-main Config
+          command: |
+            circleci config process .circleci/pre-main.yml > generated_pre_main.yml
+      - continuation/continue:
+          configuration_path: generated_pre_main.yml
 
 workflows:
-  version: 2
   test-pipeline:
     jobs:
       - test
