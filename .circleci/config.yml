@@ -19,10 +19,17 @@ jobs:
             ./.circleci/use_env.sh
             source $BASH_ENV
             circleci config process "$CONFIG_PATH" > generated_config.yml
+      - run:
+          name: Debug - Print Selected Config
+          command: cat generated_config.yml
       - continuation/continue:
           configuration_path: generated_config.yml
 
 workflows:
   run-environment-selector:
     jobs:
-      - setup
+      - setup:
+          filters:
+            branches:
+              only:
+                - main

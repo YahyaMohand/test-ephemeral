@@ -1,4 +1,5 @@
 version: 2.1
+
 jobs:
   say-staging:
     docker:
@@ -7,9 +8,9 @@ jobs:
       - checkout
       - run:
           name: "Say Staging"
-          command: "echo Staging env!"
+          command: "echo Staging environment is running!"
 
 workflows:
-  say-hello-workflow: 
+  say-hello-workflow:
     jobs:
       - say-staging
