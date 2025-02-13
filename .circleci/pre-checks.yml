@@ -14,12 +14,14 @@ jobs:
     executor: python-executor
     steps:
       - checkout
+      # Restore continuation token
+      - continuation/restore-continuation-key
       - run:
           name: Run main.py
           command: python main.py
       - circleci-cli/install
       - run:
-          name: Process Pre-main Config
+          name: Process Next Config
           command: |
             circleci config process .circleci/pre-main.yml > generated_pre_main.yml
       - continuation/continue:
