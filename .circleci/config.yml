@@ -1,5 +1,6 @@
 version: 2.1
 
+# Enable setup workflow
 setup: true
 
 orbs:
@@ -13,13 +14,21 @@ jobs:
       - checkout
       - circleci-cli/install
       - run:
-          name: Process Pre-checks Config
+          name: Set Environment
           command: |
-            circleci config process .circleci/pre-checks.yml > generated_pre_checks.yml
+            chmod u+x .circleci/use_env.sh
+            ./.circleci/use_env.sh
+            source $BASH_ENV
+      # Store continuation token
+      - continuation/persist-continuation-key
+      - run:
+          name: Process Next Config
+          command: |
+            circleci config process .circleci/pre-checks.yml > generated_config.yml
       - continuation/continue:
-          configuration_path: generated_pre_checks.yml
+          configuration_path: generated_config.yml
 
 workflows:
-  run-environment-selector:
+  setup:
     jobs:
       - setup
