@@ -12,24 +12,13 @@ jobs:
       - checkout
       - run:
           name: Say Hello Before Staging
-          command: echo "Hello World! Pre-check before staging."
-
-  manual-approval:
-    docker:
-      - image: cimg/base:current
-    steps:
-      - run:
-          name: Await Manual Approval
-          command: echo "Please approve this step in CircleCI UI to proceed to staging."
+          command: echo "Hello World! Pre-check before merging to main."
 
 workflows:
-  pre-check-before-staging:
+  pre-check-before-merging:
     jobs:
       - pre-check
       - hold-for-approval:
           type: approval
           requires:
             - pre-check
-      - say-staging:  # Replace `continue-to-staging` with the actual job name
-          requires:
-            - hold-for-approval
