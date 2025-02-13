@@ -1,7 +1,7 @@
 #!/bin/sh
 
 if [ "$CIRCLE_BRANCH" = "main" ]; then
-    echo 'export CONFIG_PATH=.circleci/staging.yml' >> $BASH_ENV
+    echo 'export CONFIG_PATH=.circleci/pre-main.yml' >> $BASH_ENV
 elif [ "$CIRCLE_BRANCH" = "production" ]; then
     echo 'export CONFIG_PATH=.circleci/production.yml' >> $BASH_ENV
 else
