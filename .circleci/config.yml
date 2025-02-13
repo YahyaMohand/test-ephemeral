@@ -11,6 +11,7 @@ parameters:
 
 orbs:
   continuation: circleci/continuation@1.1.0
+  circleci-cli: circleci/circleci-cli@0.1.9
 
 jobs:
   setup:
@@ -18,15 +19,16 @@ jobs:
       - image: cimg/base:current
     steps:
       - checkout
+      - circleci-cli/install
       - run:
           name: Generate Config
           command: |
             if [[ "$CIRCLE_BRANCH" != "main" && -n "$CIRCLE_PULL_REQUEST" ]]; then
               echo "Generating config for PR to main"
-              circleci config pack .circleci/<< pipeline.parameters.continue-to-config >> > processed_config.yml
+              circleci config process .circleci/<< pipeline.parameters.continue-to-config >> > processed_config.yml
             else
               echo "Generating default config"
-              circleci config pack .circleci/pre-checks.yml > processed_config.yml
+              circleci config process .circleci/pre-checks.yml > processed_config.yml
             fi
       - continuation/continue:
           configuration_path: processed_config.yml
