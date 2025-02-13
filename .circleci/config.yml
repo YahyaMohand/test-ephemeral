@@ -1,8 +1,5 @@
 version: 2.1
 
-# Enable setup workflow
-setup: true
-
 orbs:
   continuation: circleci/continuation@1
   circleci-cli: circleci/circleci-cli@0.1.9
