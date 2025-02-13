@@ -31,5 +31,5 @@ workflows:
       - setup:
           filters:
             branches:
-              only:
+              ignore:
                 - main
