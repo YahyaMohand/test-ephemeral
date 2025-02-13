@@ -1,40 +1,26 @@
 version: 2.1
 
-# This must be true to enable setup workflows
+# Enable setup workflow
 setup: true
 
-# Required parameters for setup workflows
+# Define parameters
 parameters:
-  continue-to-config:
+  config-path:
     type: string
-    default: "pre-checks.yml"
+    default: ".circleci/pre-checks.yml"
 
+# Use orbs
 orbs:
+  path-filtering: circleci/path-filtering@1.0.0
   continuation: circleci/continuation@1.1.0
-  circleci-cli: circleci/circleci-cli@0.1.9
 
-jobs:
-  setup:
-    docker:
-      - image: cimg/base:current
-    steps:
-      - checkout
-      - circleci-cli/install
-      - run:
-          name: Generate Config
-          command: |
-            if [[ "$CIRCLE_BRANCH" != "main" && -n "$CIRCLE_PULL_REQUEST" ]]; then
-              echo "Generating config for PR to main"
-              circleci config process .circleci/<< pipeline.parameters.continue-to-config >> > processed_config.yml
-            else
-              echo "Generating default config"
-              circleci config process .circleci/pre-checks.yml > processed_config.yml
-            fi
-      - continuation/continue:
-          configuration_path: processed_config.yml
-          parameters: '{}'
-
+# Define workflow to generate config
 workflows:
-  setup-init:
+  always-run:
     jobs:
-      - setup
+      - path-filtering/filter:
+          name: check-updated-files
+          base-revision: main
+          config-path: << pipeline.parameters.config-path >>
+          mapping: |
+            .circleci/.*\.yml config-change true

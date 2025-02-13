@@ -1,30 +1,26 @@
 version: 2.1
 
 orbs:
-  continuation: circleci/continuation@1
-  circleci-cli: circleci/circleci-cli@0.1.9
+  continuation: circleci/continuation@1.1.0
 
-executors:
-  python-executor:
+jobs:
+  test:
     docker:
       - image: cimg/python:3.9
-
-jobs: 
-  test:
-    executor: python-executor
     steps:
       - checkout
       - run:
           name: Run main.py
           command: python main.py
-      - circleci-cli/install
       - run:
-          name: Process Pre-main Config
+          name: Process Next Config
           command: |
-            circleci config process .circleci/pre-main.yml > generated_pre_main.yml
-      - continuation/continue:
-          parameters: '{}'
-          configuration_path: generated_pre_main.yml
+            if [[ -n "$CIRCLE_PULL_REQUEST" ]]; then
+              circleci config process .circleci/pre-main.yml > processed_next_config.yml
+              cat processed_next_config.yml
+              - continuation/continue:
+                  configuration_path: processed_next_config.yml
+            fi
 
 workflows:
   test-pipeline:
