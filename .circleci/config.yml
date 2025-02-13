@@ -6,14 +6,15 @@ orbs:
   continuation: circleci/continuation@1
   circleci-cli: circleci/circleci-cli@0.1.9
 
+
 jobs:
   setup:
     executor: continuation/default
     steps:
-      - checkout
-      - circleci-cli/install
-      - run:
-          name: Set Environment
+      - checkout # checkout code
+      - circleci-cli/install # Install Circle CI CLI
+      - run: # run script to generate YAML config based on the environment
+          name: Set Environment 
           command: |
             chmod u+x .circleci/use_env.sh
             ./.circleci/use_env.sh
