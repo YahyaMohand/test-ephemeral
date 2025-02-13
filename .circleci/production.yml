@@ -1,0 +1,15 @@
+version: 2.1
+jobs:
+  say-production:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - run:
+          name: "Say Production"
+          command: "echo Production env!"
+
+workflows:
+  say-hello-workflow: 
+    jobs:
+      - say-production
