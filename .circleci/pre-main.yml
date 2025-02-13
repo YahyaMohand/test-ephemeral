@@ -1,0 +1,35 @@
+version: 2.1
+
+executors:
+  python-executor:
+    docker:
+      - image: cimg/python:3.9
+
+jobs:
+  pre-check:
+    executor: python-executor
+    steps:
+      - checkout
+      - run:
+          name: Say Hello Before Staging
+          command: echo "Hello World! Pre-check before staging."
+
+  manual-approval:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - run:
+          name: Await Manual Approval
+          command: echo "Please approve this step in CircleCI UI to proceed to staging."
+
+workflows:
+  pre-check-before-staging:
+    jobs:
+      - pre-check
+      - hold-for-approval:
+          type: approval
+          requires:
+            - pre-check
+      - continue-to-staging:
+          requires:
+            - hold-for-approval
