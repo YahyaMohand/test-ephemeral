@@ -1,0 +1,29 @@
+version: 2.1
+
+setup: true
+
+orbs:
+  continuation: circleci/continuation@1
+  circleci-cli: circleci/circleci-cli@0.1.9
+
+
+jobs:
+  setup:
+    executor: continuation/default
+    steps:
+      - checkout # checkout code
+      - circleci-cli/install # Install Circle CI CLI
+      - run: # run script to generate YAML config based on the environment
+          name: Set Environment 
+          command: |
+            chmod u+x .circleci/use_env.sh
+            ./.circleci/use_env.sh
+            source $BASH_ENV
+            circleci config process "$CONFIG_PATH" > generated_config.yml
+      - continuation/continue:
+          configuration_path: generated_config.yml
+
+workflows:
+  run-environment-selector:
+    jobs:
+      - setup

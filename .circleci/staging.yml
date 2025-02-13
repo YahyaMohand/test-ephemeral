@@ -1,0 +1,15 @@
+version: 2.1
+jobs:
+  say-staging:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - run:
+          name: "Say Staging"
+          command: "echo Staging env!"
+
+workflows:
+  say-hello-workflow: 
+    jobs:
+      - say-staging

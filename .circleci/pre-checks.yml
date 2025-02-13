@@ -1,0 +1,21 @@
+version: 2.1
+
+executors:
+  python-executor:
+    docker:
+      - image: cimg/python:3.9
+
+jobs:
+  test:
+    executor: python-executor
+    steps:
+      - checkout
+      - run:
+          name: Run main.py
+          command: python main.py
+
+workflows:
+  version: 2
+  test-pipeline:
+    jobs:
+      - test
