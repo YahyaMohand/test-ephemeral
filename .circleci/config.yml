@@ -25,7 +25,7 @@ jobs:
             circleci config process .circleci/pre-checks.yml > generated_config.yml
       - continuation/continue:
           configuration_path: generated_config.yml
-
+          
 workflows:
   setup-init:
     jobs:

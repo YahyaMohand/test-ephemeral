@@ -1,7 +1,5 @@
 version: 2.1
 
-setup: true
-
 orbs:
   continuation: circleci/continuation@1
   circleci-cli: circleci/circleci-cli@0.1.9
