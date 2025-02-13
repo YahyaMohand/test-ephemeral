@@ -9,7 +9,7 @@ executors:
     docker:
       - image: cimg/python:3.9
 
-jobs:
+jobs: 
   test:
     executor: python-executor
     steps:
