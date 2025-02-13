@@ -14,6 +14,14 @@ jobs:
           name: Say Hello Before Staging
           command: echo "Hello World! Pre-check before merging to main."
 
+  manual-approval:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - run:
+          name: Await Manual Approval
+          command: echo "Please approve this step in CircleCI UI to proceed to staging."
+
 workflows:
   pre-check-before-merging:
     jobs:

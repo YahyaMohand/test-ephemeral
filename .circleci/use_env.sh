@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if [[ "$CIRCLE_BRANCH" == "main" && "$CIRCLE_PULL_REQUEST" != "" ]]; then
+if [[ "$CIRCLE_BRANCH" != "main" && -n "$CIRCLE_PULL_REQUEST" ]]; then
     echo 'export CONFIG_PATH=.circleci/pre-main.yml' >> $BASH_ENV
     echo "Running pre-check before merging to main!"
 elif [ "$CIRCLE_BRANCH" = "production" ]; then
