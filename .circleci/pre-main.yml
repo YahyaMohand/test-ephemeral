@@ -25,11 +25,11 @@ jobs:
 workflows:
   pre-check-before-staging:
     jobs:
-      - pre-checks
+      - pre-check
       - hold-for-approval:
           type: approval
           requires:
-            - pre-checks
+            - pre-check
       - continue-to-staging:
           requires:
             - hold-for-approval
