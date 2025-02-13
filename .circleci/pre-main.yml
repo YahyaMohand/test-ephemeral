@@ -30,6 +30,6 @@ workflows:
           type: approval
           requires:
             - pre-check
-      - continue-to-staging:
+      - say-staging:  # Replace `continue-to-staging` with the actual job name
           requires:
             - hold-for-approval
