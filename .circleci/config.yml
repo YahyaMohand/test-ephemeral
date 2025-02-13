@@ -19,7 +19,6 @@ jobs:
             chmod u+x .circleci/use_env.sh
             ./.circleci/use_env.sh
             source $BASH_ENV
-      - continuation/store-continuation-key
       - run:
           name: Process Next Config
           command: |
