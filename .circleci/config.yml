@@ -28,4 +28,8 @@ jobs:
 workflows:
   run-environment-selector:
     jobs:
-      - setup
+      - setup:
+          filters:
+            branches:
+              only:
+                - main
