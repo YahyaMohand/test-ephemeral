@@ -1,13 +1,14 @@
 version: 2.1
 
-# Orbs
+# Enable setup workflow
+setup: true
+
 orbs:
   continuation: circleci/continuation@1
   circleci-cli: circleci/circleci-cli@0.1.9
 
-# Jobs
 jobs:
-  setup-init:
+  setup:
     executor: continuation/default
     steps:
       - checkout
@@ -22,18 +23,10 @@ jobs:
           name: Process Next Config
           command: |
             circleci config process .circleci/pre-checks.yml > generated_config.yml
-
-  continue-pipeline:
-    executor: continuation/default
-    steps:
       - continuation/continue:
-          configuration_path: generated_config.yml
+          configuration_path: generated_staging.yml
 
-# Workflows
 workflows:
-  main:
+  setup-init:
     jobs:
-      - setup-init
-      - continue-pipeline:
-          requires:
-            - setup-init
+      - setup
