@@ -23,4 +23,4 @@ workflows:
           base-revision: main
           config-path: << pipeline.parameters.config-path >>
           mapping: |
-            .circleci/.* run-pre-checks true
+            .circleci/.* pre-checks true
