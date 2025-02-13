@@ -8,7 +8,7 @@ orbs:
   circleci-cli: circleci/circleci-cli@0.1.9
 
 jobs:
-  setup-init:
+  setup:
     executor: continuation/default
     steps:
       - checkout
@@ -27,6 +27,6 @@ jobs:
           configuration_path: generated_config.yml
 
 workflows:
-  setup:
+  setup-init:
     jobs:
-      - setup-init
+      - setup
