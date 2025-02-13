@@ -1,38 +1,32 @@
 version: 2.1
 
-# This must be true to enable setup workflows
-setup: true
-
-# Required parameters for setup workflows
-parameters:
-  continue-to-config:
-    type: string
-    default: "pre-checks.yml"
-
 orbs:
-  continuation: circleci/continuation@1.1.0
+  continuation: circleci/continuation@1
+  circleci-cli: circleci/circleci-cli@0.1.9
 
-jobs:
-  setup:
+executors:
+  python-executor:
     docker:
-      - image: cimg/base:current
+      - image: cimg/python:3.9
+
+jobs: 
+  test:
+    executor: python-executor
     steps:
       - checkout
       - run:
-          name: Generate Config
+          name: Run main.py
+          command: python main.py
+      - circleci-cli/install
+      - run:
+          name: Process Pre-main Config
           command: |
-            if [[ "$CIRCLE_BRANCH" != "main" && -n "$CIRCLE_PULL_REQUEST" ]]; then
-              echo "Generating config for PR to main"
-              circleci config pack .circleci/<< pipeline.parameters.continue-to-config >> > processed_config.yml
-            else
-              echo "Generating default config"
-              circleci config pack .circleci/pre-checks.yml > processed_config.yml
-            fi
+            circleci config process .circleci/pre-main.yml > generated_pre_main.yml
       - continuation/continue:
-          configuration_path: processed_config.yml
           parameters: '{}'
+          configuration_path: generated_pre_main.yml
 
 workflows:
-  setup-init:
+  test-pipeline:
     jobs:
-      - setup
+      - test
