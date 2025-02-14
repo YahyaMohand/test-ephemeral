@@ -18,18 +18,26 @@ jobs:
             
             if [ -n "$PR_NUMBER" ]; then
               echo "Triggering ephemeral environment for PR #${PR_NUMBER}"
+              
+              # Create proper JSON payload
+              PAYLOAD=$(cat <<EOF
+                {
+                  "parameters": {
+                    "pr_number": "${PR_NUMBER}",
+                    "backend_sha": "${CIRCLE_SHA1}"
+                  },
+                  "branch": "main"
+                }
+                EOF
+                )
+              
+              echo "Debug - Payload being sent:"
+              echo "$PAYLOAD"
+              
               curl -X POST \
                 -H "Circle-Token: ${CIRCLECI_TOKEN}" \
                 -H "Content-Type: application/json" \
-                -d '{
-                  "branch": "main",
-                  "parameters": {
-                    "pipeline-parameter": {
-                      "pr_number": "'${PR_NUMBER}'",
-                      "backend_sha": "'${CIRCLE_SHA1}'"
-                    }
-                  }
-                }' \
+                -d "$PAYLOAD" \
                 "https://circleci.com/api/v2/project/github/YahyaMohand/ephemeral/pipeline"
             else
               echo "No PR number found. Skipping ephemeral environment trigger."
