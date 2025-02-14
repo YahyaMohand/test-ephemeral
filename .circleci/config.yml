@@ -13,7 +13,9 @@ jobs:
       - run:
           name: Trigger Ephemeral Environment
           command: |
+            # Extract PR number from the GitHub URL
             PR_NUMBER=${CIRCLE_PULL_REQUEST##*/}
+            
             if [ -n "$PR_NUMBER" ]; then
               echo "Triggering ephemeral environment for PR #${PR_NUMBER}"
               curl -X POST \
@@ -36,7 +38,7 @@ workflows:
   pr_workflow:
     jobs:
       - trigger_ephemeral:
-          context: aws-cred
+          context: aws-creds
           filters:
             branches:
               ignore: main
