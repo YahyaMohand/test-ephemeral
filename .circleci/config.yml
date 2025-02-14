@@ -1,32 +1,63 @@
 version: 2.1
 
-setup: true
-
-orbs:
-  continuation: circleci/continuation@1
-  circleci-cli: circleci/circleci-cli@0.1.9
+executors:
+  python-executor:
+    docker:
+      - image: circleci/python:3.10  # Use an appropriate Python image
 
 jobs:
-  setup:
-    executor: continuation/default
+  prepare_workspace:
+    executor: python-executor
     steps:
       - checkout
-      - circleci-cli/install
+      - run: python --version  # Verify Python version
+      - persist_to_workspace:
+          root: .
+          paths:
+            - main.py  # Ensure the script is available in other jobs
+
+  unit_test:
+    executor: python-executor
+    steps:
+      - attach_workspace:
+          at: .
       - run:
-          name: Set Environment
+          name: "Run Python Script"
+          command: python main.py  # Execute your Python script
+
+  static_analysis:
+    executor: python-executor
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: "Run Linting and Security Checks"
           command: |
-            chmod u+x .circleci/use_env.sh
-            ./.circleci/use_env.sh
-            source $BASH_ENV
-            echo "Using config: $CONFIG_PATH"
-            circleci config process "$CONFIG_PATH" > generated_config.yml
+            pip install flake8 bandit
+            flake8 main.py  # Lint check
+            bandit -r main.py  # Security scan
+
+  trigger_ephemeral_env:
+    executor: python-executor
+    steps:
       - run:
-          name: Debug - Print Selected Config
-          command: cat generated_config.yml
-      - continuation/continue:
-          configuration_path: generated_config.yml
+          name: "Trigger Terraform Deployment"
+          command: |
+            curl -X POST -H "Circle-Token: $CIRCLECI_TOKEN" \
+              -d '{ "branch": "main" }' \
+              https://circleci.com/api/v2/project/github/YahyaMohand/ephemeral/pipeline
 
 workflows:
-  run-environment-selector:
+  version: 2
+  ci_pipeline:
     jobs:
-      - setup
+      - prepare_workspace
+      - unit_test:
+          requires:
+            - prepare_workspace
+      - static_analysis:
+          requires:
+            - unit_test
+      - trigger_ephemeral_env:
+          requires:
+            - static_analysis
