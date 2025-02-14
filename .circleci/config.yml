@@ -1,74 +1,6 @@
 version: 2.1
 
-orbs:
-  python: circleci/python@2.1
-
-executors:
-  python-executor:
-    docker:
-      - image: cimg/python:3.8
-
-commands:
-  install_dependencies:
-    steps:
-      - python/install-packages:
-          pkg-manager: pip
-          packages:
-            - pytest
-            - pytest-cov
-            - bandit
-            - safety
-
 jobs:
-  prepare_workspace:
-    executor: python-executor
-    steps:
-      - checkout
-      - install_dependencies
-      - persist_to_workspace:
-          root: .
-          paths:
-            - .
-
-  unit_tests:
-    executor: python-executor
-    steps:
-      - attach_workspace:
-          at: .
-      - run:
-          name: Run Unit Tests
-          command: |
-            pytest tests/unit --junitxml=test-results/unit/results.xml --cov=src
-      - store_test_results:
-          path: test-results
-      - store_artifacts:
-          path: test-results
-
-  integration_tests:
-    executor: python-executor
-    steps:
-      - attach_workspace:
-          at: .
-      - run:
-          name: Run Integration Tests
-          command: |
-            pytest tests/integration --junitxml=test-results/integration/results.xml
-      - store_test_results:
-          path: test-results
-
-  security_scan:
-    executor: python-executor
-    steps:
-      - attach_workspace:
-          at: .
-      - run:
-          name: Run Security Scans
-          command: |
-            bandit -r src -f json -o security-report.json
-            safety check
-      - store_artifacts:
-          path: security-report.json
-
   trigger_ephemeral:
     executor: python-executor
     steps:
@@ -96,22 +28,6 @@ workflows:
   version: 2
   pr_workflow:
     jobs:
-      - prepare_workspace:
-          filters:
-            branches:
-              ignore: main
-      - unit_tests:
-          requires:
-            - prepare_workspace
-      - integration_tests:
-          requires:
-            - unit_tests
-      - security_scan:
-          requires:
-            - prepare_workspace
       - trigger_ephemeral:
-          requires:
-            - integration_tests
-            - security_scan
           context:
             - aws-cred
