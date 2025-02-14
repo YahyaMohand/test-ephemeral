@@ -3,12 +3,6 @@ version: 2.1
 # Enable setup workflow
 setup: true
 
-# Define parameters
-parameters:
-  config-path:
-    type: string
-    default: ".circleci/pre-checks.yml"
-
 # Use orbs
 orbs:
   path-filtering: circleci/path-filtering@1.0.0
@@ -59,24 +53,20 @@ workflows:
       - path-filtering/filter:
           name: check-updated-files
           base-revision: main
-          config-path: << pipeline.parameters.config-path >>
           mapping: |
-            .circleci/config.yml true
+            .circleci/config.yml true true
       - path-filtering/filter:
           name: check-pre-checks
           base-revision: main
-          config-path: << pipeline.parameters.config-path >>
           mapping: |
             .circleci/pre-checks.yml true
       - path-filtering/filter:
           name: check-pre-main
           base-revision: main
-          config-path: << pipeline.parameters.config-path >>
           mapping: |
             .circleci/pre-main.yml true
       - path-filtering/filter:
           name: check-staging
           base-revision: main
-          config-path: << pipeline.parameters.config-path >>
           mapping: |
             .circleci/staging.yml true
