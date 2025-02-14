@@ -3,61 +3,99 @@ version: 2.1
 executors:
   python-executor:
     docker:
-      - image: circleci/python:3.10  # Use an appropriate Python image
+      - image: circleci/python:3.10
 
 jobs:
-  prepare_workspace:
-    executor: python-executor
-    steps:
-      - checkout
-      - run: python --version  # Verify Python version
-      - persist_to_workspace:
-          root: .
-          paths:
-            - main.py  # Ensure the script is available in other jobs
-
-  unit_test:
-    executor: python-executor
-    steps:
-      - attach_workspace:
-          at: .
-      - run:
-          name: "Run Python Script"
-          command: python main.py  # Execute your Python script
-
-  static_analysis:
-    executor: python-executor
-    steps:
-      - attach_workspace:
-          at: .
-      - run:
-          name: "Run Linting and Security Checks"
-          command: |
-            pip install flake8 bandit
-            flake8 main.py  # Lint check
-            bandit -r main.py  # Security scan
-
   trigger_ephemeral_env:
     executor: python-executor
     steps:
       - run:
-          name: "Trigger Terraform Deployment"
+          name: "Trigger Ephemeral Environment"
           command: |
-            curl -X POST -H "Circle-Token: $CIRCLECI_TOKEN" \
-              -d '{ "branch": "main" }' \
-              https://circleci.com/api/v2/project/github/YahyaMohand/ephemeral/pipeline
+            PR_NUMBER=$(echo "$CIRCLE_PULL_REQUEST" | awk -F'/' '{print $NF}')
+            
+            RESPONSE=$(curl -s -X POST -H "Circle-Token: $CIRCLECI_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d '{ "branch": "pr-'$PR_NUMBER'" }' \
+              https://circleci.com/api/v2/project/gh/YahyaMohand/ephemeral/pipeline)
+
+            PIPELINE_ID=$(echo $RESPONSE | jq -r '.id')
+
+            if [[ "$PIPELINE_ID" != "null" ]]; then
+              echo "Ephemeral environment triggered successfully for PR #$PR_NUMBER."
+              echo "Pipeline ID: $PIPELINE_ID" > pipeline_id.txt
+              echo "export PIPELINE_ID=$PIPELINE_ID" >> $BASH_ENV
+            else
+              echo "Failed to trigger ephemeral environment."
+              exit 1
+            fi
+      - persist_to_workspace:
+          root: .
+          paths:
+            - pipeline_id.txt
+
+  check_pipeline_status:
+    executor: python-executor
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: "Monitor Ephemeral Env Progress"
+          command: |
+            PIPELINE_ID=$(cat pipeline_id.txt)
+
+            while true; do
+              STATUS=$(curl -s -X GET -H "Circle-Token: $CIRCLECI_TOKEN" \
+                https://circleci.com/api/v2/pipeline/$PIPELINE_ID | jq -r '.state')
+
+              echo "Current Status: $STATUS"
+
+              if [[ "$STATUS" == "completed" ]]; then
+                echo "Ephemeral environment is ready!"
+                break
+              elif [[ "$STATUS" == "failed" ]]; then
+                echo "Ephemeral environment failed."
+                exit 1
+              fi
+              
+              sleep 30  # Check every 30 seconds
+            done
+
+  notify_approval:
+    executor: python-executor
+    steps:
+      - run:
+          name: "Notify Developers for Approval"
+          command: |
+            PR_NUMBER=$(echo "$CIRCLE_PULL_REQUEST" | awk -F'/' '{print $NF}')
+            
+            curl -X POST -H "Content-Type: application/json" \
+              -d '{"text": "Approval needed for PR #'$PR_NUMBER'. Approve in CircleCI: https://app.circleci.com/pipelines/gh/YahyaMohand/ephemeral"}' \
+              $SLACK_WEBHOOK_URL
+
+  notify_ready:
+    executor: python-executor
+    steps:
+      - run:
+          name: "Notify When Environment is Ready"
+          command: |
+            PR_NUMBER=$(echo "$CIRCLE_PULL_REQUEST" | awk -F'/' '{print $NF}')
+            
+            curl -X POST -H "Content-Type: application/json" \
+              -d '{"text": "Ephemeral environment for PR #'$PR_NUMBER' is ready! ✅"}' \
+              $SLACK_WEBHOOK_URL
 
 workflows:
   version: 2
-  ci_pipeline:
+  pr_workflow:
     jobs:
-      - prepare_workspace
-      - unit_test:
+      - trigger_ephemeral_env
+      - check_pipeline_status:
           requires:
-            - prepare_workspace
-      - static_analysis:
+            - trigger_ephemeral_env
+      - notify_approval:
           requires:
-            - unit_test
-      - trigger_ephemeral_env:
+            - check_pipeline_status
+      - notify_ready:
           requires:
-            - static_analysis
+            - notify_approval
