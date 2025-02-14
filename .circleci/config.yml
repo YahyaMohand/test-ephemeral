@@ -21,13 +21,15 @@ jobs:
               curl -X POST \
                 -H "Circle-Token: ${CIRCLECI_TOKEN}" \
                 -H "Content-Type: application/json" \
-                -d "{
-                  \"branch\": \"main\",
-                  \"parameters\": {
-                    \"pr_number\": \"${PR_NUMBER}\",
-                    \"backend_sha\": \"${CIRCLE_SHA1}\"
+                -d '{
+                  "branch": "main",
+                  "parameters": {
+                    "pipeline-parameter": {
+                      "pr_number": "'${PR_NUMBER}'",
+                      "backend_sha": "'${CIRCLE_SHA1}'"
+                    }
                   }
-                }" \
+                }' \
                 "https://circleci.com/api/v2/project/github/YahyaMohand/ephemeral/pipeline"
             else
               echo "No PR number found. Skipping ephemeral environment trigger."
@@ -38,7 +40,7 @@ workflows:
   pr_workflow:
     jobs:
       - trigger_ephemeral:
-          context: aws-creds
+          context: circleci-api
           filters:
             branches:
               ignore: main
