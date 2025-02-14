@@ -26,7 +26,7 @@ jobs:
           command: |
             echo "Current branch: $CIRCLE_BRANCH"
             curl -X POST -H "Circle-Token: $CIRCLECI_TOKEN" \
-              -d '{ "branch": "'"$CIRCLE_BRANCH"'" }' \
+              -d '{ "branch": "main" }' \
               https://circleci.com/api/v2/project/github/YahyaMohand/ephemeral/pipeline
 
 workflows:
