@@ -61,10 +61,10 @@ workflows:
           base-revision: main
           config-path: << pipeline.parameters.config-path >>
           mapping: |
-            .circleci/.* run-config true
-            .circleci/.* pre-check true
-            .circleci/.* pre-main true
-            .circleci/.* staging true
+            .circleci/config.yml run-config
+            .circleci/pre-checks.yml pre-check
+            .circleci/pre-main.yml pre-main
+            .circleci/staging.yml staging
       - run-config:
           requires:
             - check-updated-files
