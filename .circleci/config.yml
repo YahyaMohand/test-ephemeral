@@ -54,19 +54,19 @@ workflows:
           name: check-updated-files
           base-revision: main
           mapping: |
-            .circleci/config.yml true true
+            .circleci/config.yml run-config true
       - path-filtering/filter:
           name: check-pre-checks
           base-revision: main
           mapping: |
-            .circleci/pre-checks.yml true
+            .circleci/pre-checks.yml pre-check true
       - path-filtering/filter:
           name: check-pre-main
           base-revision: main
           mapping: |
-            .circleci/pre-main.yml true
+            .circleci/pre-main.yml pre-main true
       - path-filtering/filter:
           name: check-staging
           base-revision: main
           mapping: |
-            .circleci/staging.yml true
+            .circleci/staging.yml staging true
