@@ -14,20 +14,14 @@ jobs:
           command: |
             echo "Click 'Approve' in CircleCI to trigger the ephemeral environment."
 
-  trigger_ephemeral:
-    executor: python-executor
-    steps:
-      - checkout
       - run:
           name: Trigger Ephemeral Environment
           command: |
-            # Extract PR number from the GitHub URL
             if [[ -n "${CIRCLE_PULL_REQUEST}" ]]; then
               PR_NUMBER=${CIRCLE_PULL_REQUEST##*/}
               echo "Extracted PR Number: ${PR_NUMBER}"
-              
-              # Construct JSON payload
-              JSON_PAYLOAD="{\"branch\": \"main\", \"parameters\": {\"pr_number\": \"${PR_NUMBER}\"}}"
+
+              JSON_PAYLOAD="{\"branch\": \"${CIRCLE_BRANCH}\", \"parameters\": {\"pr_number\": \"${PR_NUMBER}\", \"pr_branch\": \"${CIRCLE_BRANCH}\"}}"
 
               echo "Sending JSON Payload: $JSON_PAYLOAD"
 
@@ -38,14 +32,14 @@ jobs:
                 "https://circleci.com/api/v2/project/github/YahyaMohand/ephemeral/pipeline")
 
               echo "Response from CircleCI: $RESPONSE"
-
             else
               echo "No PR number found. Skipping ephemeral environment trigger."
             fi
+
       - run:
           name: Log Message
           command: |
-            echo "Ephemeral environment for PR #${PR_NUMBER} is being built. You can check progress in the [CircleCI UI](https://app.circleci.com/pipelines/github/YahyaMohand/ephemeral)."
+            echo "Ephemeral environment for PR #${CIRCLE_BRANCH} is being built. You can check progress in the [CircleCI UI](https://app.circleci.com/pipelines/github/YahyaMohand/ephemeral)."
 
 workflows:
   version: 2
