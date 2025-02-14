@@ -17,7 +17,7 @@ jobs:
             RESPONSE=$(curl -s -X POST -H "Circle-Token: $CIRCLECI_TOKEN" \
               -H "Content-Type: application/json" \
               -d '{ "branch": "pr-'$PR_NUMBER'" }' \
-              https://circleci.com/api/v2/project/gh/YahyaMohand/ephemeral/pipeline)
+              https://circleci.com/api/v2/project/github/YahyaMohand/ephemeral/pipeline)
 
             PIPELINE_ID=$(echo $RESPONSE | jq -r '.id')
 
@@ -70,7 +70,7 @@ jobs:
             PR_NUMBER=$(echo "$CIRCLE_PULL_REQUEST" | awk -F'/' '{print $NF}')
             
             curl -X POST -H "Content-Type: application/json" \
-              -d '{"text": "Approval needed for PR #'$PR_NUMBER'. Approve in CircleCI: https://app.circleci.com/pipelines/gh/YahyaMohand/ephemeral"}' \
+              -d '{"text": "Approval needed for PR #'$PR_NUMBER'. Approve in CircleCI: https://app.circleci.com/pipelines/github/YahyaMohand/ephemeral"}' \
               $SLACK_WEBHOOK_URL
 
   notify_ready:
