@@ -6,7 +6,7 @@ orbs:
 jobs:
   test:
     docker:
-      - image: cimg/python:3.9
+      - image: cimg/python:3.9 
     steps:
       - checkout
       - run:
