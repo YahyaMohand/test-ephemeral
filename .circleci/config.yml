@@ -2,7 +2,7 @@ version: 2.1
 
 jobs:
   trigger_ephemeral:
-    executor: python-executor
+    executor: docker-executor
     steps:
       - run:
           name: Trigger Ephemeral Environment
