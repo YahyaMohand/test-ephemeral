@@ -1,19 +1,21 @@
 version: 2.1
 
 executors:
-  docker-executor:
+  python-executor:
     docker:
-      - image: circleci/node:22  # Use appropriate image
+      - image: cimg/python:3.8
 
 jobs:
   trigger_ephemeral:
-    executor: docker-executor
+    executor: python-executor
     steps:
+      - checkout
       - run:
           name: Trigger Ephemeral Environment
           command: |
             PR_NUMBER=${CIRCLE_PULL_REQUEST##*/}
             if [ -n "$PR_NUMBER" ]; then
+              echo "Triggering ephemeral environment for PR #${PR_NUMBER}"
               curl -X POST \
                 -H "Circle-Token: ${CIRCLECI_TOKEN}" \
                 -H "Content-Type: application/json" \
@@ -34,5 +36,7 @@ workflows:
   pr_workflow:
     jobs:
       - trigger_ephemeral:
-          context:
-            - aws-cred
+          context: aws-cred
+          filters:
+            branches:
+              ignore: main
