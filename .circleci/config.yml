@@ -14,6 +14,10 @@ jobs:
           command: |
             echo "Click 'Approve' in CircleCI to trigger the ephemeral environment."
 
+  trigger_ephemeral:
+    executor: python-executor
+    steps:
+      - checkout
       - run:
           name: Trigger Ephemeral Environment
           command: |
@@ -53,7 +57,7 @@ workflows:
       - trigger_ephemeral:
           requires:
             - hold_for_trigger
-          context: circleci-api
+          context: aws-creds
           filters:
             branches:
               ignore: main
