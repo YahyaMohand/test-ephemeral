@@ -44,7 +44,7 @@ jobs:
           name: Notify GitHub - Ephemeral Env is Building
           command: |
             PR_NUMBER=${CIRCLE_PULL_REQUEST##*/}
-            REPO="YahyaMohand/backend-repo"  # Change this to your backend repo name
+            REPO="YahyaMohand/ephemeral"  # Change this to your backend repo name
             GITHUB_TOKEN=${GITHUB_TOKEN}  # Store this in CircleCI environment variables
 
             if [[ -n "$PR_NUMBER" ]]; then
