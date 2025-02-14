@@ -1,0 +1,16 @@
+version: 2.1
+
+jobs:
+  example-job:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - run:
+          name: Example Job
+          command: echo "This is an example job"
+
+workflows:
+  example-workflow:
+    jobs:
+      - example-job

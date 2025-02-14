@@ -1,4 +1,8 @@
 version: 2.1
+ 
+orbs:
+  continuation: circleci/continuation@1.1.0
+  circleci-cli: circleci/circleci-cli@0.1.9
 
 executors:
   python-executor:
@@ -13,6 +17,13 @@ jobs:
       - run:
           name: Say Hello Before Staging
           command: echo "Hello World! Pre-check before merging to main."
+      - circleci-cli/install
+      - run:
+          name: Process Staging Config
+          command: |
+            circleci config process .circleci/staging.yml > generated_staging.yml
+      - continuation/continue:
+          configuration_path: generated_staging.yml
 
   manual-approval:
     docker:
@@ -26,7 +37,10 @@ workflows:
   pre-check-before-merging:
     jobs:
       - pre-check
+      - manual-approval:
+          requires:
+            - pre-check
       - hold-for-approval:
           type: approval
           requires:
-            - pre-check
+            - manual-approval

@@ -1,21 +1,28 @@
 version: 2.1
 
-executors:
-  python-executor:
-    docker:
-      - image: cimg/python:3.9
+orbs:
+  continuation: circleci/continuation@1.1.0
 
 jobs:
   test:
-    executor: python-executor
+    docker:
+      - image: cimg/python:3.9 
     steps:
       - checkout
       - run:
           name: Run main.py
           command: python main.py
+      - run:
+          name: Process Next Config
+          command: |
+            if [[ -n "$CIRCLE_PULL_REQUEST" ]]; then
+              circleci config process .circleci/pre-main.yml > processed_next_config.yml
+              cat processed_next_config.yml
+              - continuation/continue:
+                  configuration_path: processed_next_config.yml
+            fi
 
 workflows:
-  version: 2
   test-pipeline:
     jobs:
       - test

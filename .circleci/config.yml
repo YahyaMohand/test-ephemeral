@@ -1,32 +1,69 @@
 version: 2.1
 
-setup: true
-
+# Use orbs
 orbs:
-  continuation: circleci/continuation@1
-  circleci-cli: circleci/circleci-cli@0.1.9
+  path-filtering: circleci/path-filtering@1.0.0
+  continuation: circleci/continuation@1.1.0
 
+# Define jobs
 jobs:
-  setup:
-    executor: continuation/default
+  run-config:
+    docker:
+      - image: cimg/base:stable
     steps:
       - checkout
-      - circleci-cli/install
       - run:
-          name: Set Environment
-          command: |
-            chmod u+x .circleci/use_env.sh
-            ./.circleci/use_env.sh
-            source $BASH_ENV
-            echo "Using config: $CONFIG_PATH"
-            circleci config process "$CONFIG_PATH" > generated_config.yml
-      - run:
-          name: Debug - Print Selected Config
-          command: cat generated_config.yml
-      - continuation/continue:
-          configuration_path: generated_config.yml
+          name: Run Config
+          command: echo "Running config job"
 
+  pre-check:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - run:
+          name: Run Pre-Check
+          command: echo "Running pre-check job"
+
+  pre-main:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - run:
+          name: Run Pre-Main
+          command: echo "Running pre-main job"
+
+  staging:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - run:
+          name: Run Staging
+          command: echo "Running staging job"
+
+# Define workflow to generate config
 workflows:
-  run-environment-selector:
+  always-run:
     jobs:
-      - setup
+      - path-filtering/filter:
+          name: check-updated-files
+          base-revision: main
+          mapping: |
+            .circleci/config.yml run-config true
+      - path-filtering/filter:
+          name: check-pre-checks
+          base-revision: main
+          mapping: |
+            .circleci/pre-checks.yml pre-check true
+      - path-filtering/filter:
+          name: check-pre-main
+          base-revision: main
+          mapping: |
+            .circleci/pre-main.yml pre-main
+      - path-filtering/filter:
+          name: check-staging
+          base-revision: main
+          mapping: |
+            .circleci/staging.yml staging
