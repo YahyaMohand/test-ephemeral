@@ -1,8 +1,5 @@
 version: 2.1
 
-# Enable setup workflow
-setup: true
-
 # Use orbs
 orbs:
   path-filtering: circleci/path-filtering@1.0.0
@@ -51,6 +48,11 @@ workflows:
   always-run:
     jobs:
       - path-filtering/filter:
+          name: check-updated-files
+          base-revision: main
+          mapping: |
+            .circleci/config.yml run-config true
+      - path-filtering/filter:
           name: check-pre-checks
           base-revision: main
           mapping: |
@@ -59,9 +61,9 @@ workflows:
           name: check-pre-main
           base-revision: main
           mapping: |
-            .circleci/pre-main.yml pre-main true
+            .circleci/pre-main.yml pre-main
       - path-filtering/filter:
           name: check-staging
           base-revision: main
           mapping: |
-            .circleci/staging.yml staging true
+            .circleci/staging.yml staging
