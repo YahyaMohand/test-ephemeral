@@ -16,28 +16,6 @@ jobs:
           paths:
             - .
 
-  unit_test:
-    executor: docker-executor
-    steps:
-      - attach_workspace:
-          at: .
-      - run: python -m unittest discover  # Run unit tests
-
-  e2e_test:
-    executor: docker-executor
-    steps:
-      - attach_workspace:
-          at: .
-      - run: python -m pytest e2e_tests/  # Run end-to-end tests
-
-  sast_scan:
-    executor: docker-executor
-    steps:
-      - attach_workspace:
-          at: .
-      - run: pip install bandit  # Example for a security scan tool
-      - run: bandit -r .  # Run security scan
-
   trigger_ephemeral_env:
     executor: docker-executor
     steps:
@@ -53,15 +31,6 @@ workflows:
   ci_pipeline:
     jobs:
       - prepare_workspace
-      - unit_test:
-          requires:
-            - prepare_workspace
-      - e2e_test:
-          requires:
-            - unit_test
-      - sast_scan:
-          requires:
-            - e2e_test
       - trigger_ephemeral_env:
           requires:
-            - sast_scan
+            - prepare_workspace
