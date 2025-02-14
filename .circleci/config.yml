@@ -19,7 +19,7 @@ jobs:
               echo "Extracted PR Number: ${PR_NUMBER}"
               
               JSON_PAYLOAD=$(echo '{
-                "branch": "main",
+                "branch": "feat/trigger-from-backend-repo",
                 "parameters": {
                   "pipeline-parameter": {
                     "pr_number": "'"${PR_NUMBER}"'",
