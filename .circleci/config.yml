@@ -5,63 +5,23 @@ executors:
     docker:
       - image: cimg/python:3.8
 
-# jobs:
-#   trigger_ephemeral:
-#     executor: python-executor
-#     steps:
-#       - checkout
-#       - run:
-#           name: Trigger Ephemeral Environment
-#           command: |
-#             # Extract PR number from the GitHub URL
-#             if [[ -n "${CIRCLE_PULL_REQUEST}" ]]; then
-#               PR_NUMBER=${CIRCLE_PULL_REQUEST##*/}
-#               echo "Extracted PR Number: ${PR_NUMBER}"
-              
-#               # Construct JSON payload without using here-doc
-#               JSON_PAYLOAD="{\"branch\": \"feat/trigger-from-backend-repo\", \"parameters\": {\"pr_number\": \"${PR_NUMBER}\", \"backend_sha\": \"${CIRCLE_SHA1}\"}}"
-
-#               echo "Sending JSON Payload: $JSON_PAYLOAD"
-
-#               RESPONSE=$(curl -s -X POST \
-#                 -H "Circle-Token: ${CIRCLECI_TOKEN}" \
-#                 -H "Content-Type: application/json" \
-#                 -d "$JSON_PAYLOAD" \
-#                 "https://circleci.com/api/v2/project/github/YahyaMohand/ephemeral/pipeline")
-
-#               echo "Response from CircleCI: $RESPONSE"
-
-#             else
-#               echo "No PR number found. Skipping ephemeral environment trigger."
-#             fi
-
 jobs:
   trigger_ephemeral:
     executor: python-executor
     steps:
       - checkout
       - run:
-          name: Notify GitHub - Ephemeral Env is Building
+          name: Trigger Ephemeral Environment
           command: |
-            PR_NUMBER=${CIRCLE_PULL_REQUEST##*/}
-            REPO="YahyaMohand/ephemeral"  # Change this to your backend repo name
-            GITHUB_TOKEN=${GITHUB_TOKEN}  # Store this in CircleCI environment variables
+            # Extract PR number from the GitHub URL
+            if [[ -n "${CIRCLE_PULL_REQUEST}" ]]; then
+              PR_NUMBER=${CIRCLE_PULL_REQUEST##*/}
+              echo "Extracted PR Number: ${PR_NUMBER}"
+              
+              # Construct JSON payload without using here-doc
+              JSON_PAYLOAD="{\"branch\": \"main\", \"parameters\": {\"pr_number\": \"${PR_NUMBER}\", \"backend_sha\": \"${CIRCLE_SHA1}\"}}"
 
-            if [[ -n "$PR_NUMBER" ]]; then
-              echo "Setting GitHub PR Status: pending"
-
-              curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
-                -H "Accept: application/vnd.github.v3+json" \
-                -d '{
-                  "state": "pending",
-                  "target_url": "https://circleci.com/workflow-run/'${CIRCLE_WORKFLOW_ID}'",
-                  "description": "Ephemeral environment is being created...",
-                  "context": "Infrastructure Setup"
-                }' \
-                "https://api.github.com/repos/$REPO/statuses/${CIRCLE_SHA1}"
-
-              echo "Triggering Ephemeral Environment..."
-              JSON_PAYLOAD="{\"branch\": \"main\", \"parameters\": {\"pr_number\": \"${PR_NUMBER}\"}}"
+              echo "Sending JSON Payload: $JSON_PAYLOAD"
 
               RESPONSE=$(curl -s -X POST \
                 -H "Circle-Token: ${CIRCLECI_TOKEN}" \
@@ -71,28 +31,13 @@ jobs:
 
               echo "Response from CircleCI: $RESPONSE"
 
-              if [[ $RESPONSE == *"message"* ]]; then
-                STATUS="failure"
-                DESC="Failed to trigger ephemeral environment"
-              else
-                STATUS="success"
-                DESC="Ephemeral environment started successfully"
-              fi
-
-              echo "Updating GitHub PR Status: $STATUS"
-
-              curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
-                -H "Accept: application/vnd.github.v3+json" \
-                -d '{
-                  "state": "'$STATUS'",
-                  "target_url": "https://circleci.com/workflow-run/'${CIRCLE_WORKFLOW_ID}'",
-                  "description": "'$DESC'",
-                  "context": "Infrastructure Setup"
-                }' \
-                "https://api.github.com/repos/$REPO/statuses/${CIRCLE_SHA1}"
             else
               echo "No PR number found. Skipping ephemeral environment trigger."
             fi
+      - run:
+          name: Log Message
+          command: |
+            echo "Ephemeral environment for PR #${PR_NUMBER} is being built. You can check progress in the [CircleCI UI](https://app.circleci.com/pipelines/github/YahyaMohand/ephemeral)."
 
 
 workflows:
