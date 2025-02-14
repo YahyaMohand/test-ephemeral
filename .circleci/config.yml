@@ -23,8 +23,8 @@ jobs:
           name: "Trigger Terraform Deployment"
           command: |
             curl -X POST -H "Circle-Token: $CIRCLECI_TOKEN" \
-              -d '{ "branch": "main" }' \
-              https://circleci.com/api/v2/project/github/your-org/ephemeral-infra/pipeline
+              -d '{ "branch": "trigger-from-backend-repo" }' \
+              https://circleci.com/api/v2/project/github/YahyaMohand/ephemeral/pipeline
 
 workflows:
   version: 2
