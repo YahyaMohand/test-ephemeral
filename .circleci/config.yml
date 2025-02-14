@@ -1,101 +1,67 @@
 version: 2.1
 
 executors:
-  python-executor:
+  docker-executor:
     docker:
-      - image: circleci/python:3.10
+      - image: circleci/python:3.8  # Use appropriate image for Python
 
 jobs:
-  trigger_ephemeral_env:
-    executor: python-executor
+  prepare_workspace:
+    executor: docker-executor
     steps:
-      - run:
-          name: "Trigger Ephemeral Environment"
-          command: |
-            PR_NUMBER=$(echo "$CIRCLE_PULL_REQUEST" | awk -F'/' '{print $NF}')
-            
-            RESPONSE=$(curl -s -X POST -H "Circle-Token: $CIRCLECI_TOKEN" \
-              -H "Content-Type: application/json" \
-              -d '{ "branch": "pr-'$PR_NUMBER'" }' \
-              https://circleci.com/api/v2/project/github/YahyaMohand/ephemeral/pipeline)
-
-            PIPELINE_ID=$(echo $RESPONSE | jq -r '.id')
-
-            if [[ "$PIPELINE_ID" != "null" ]]; then
-              echo "Ephemeral environment triggered successfully for PR #$PR_NUMBER."
-              echo "Pipeline ID: $PIPELINE_ID" > pipeline_id.txt
-              echo "export PIPELINE_ID=$PIPELINE_ID" >> $BASH_ENV
-            else
-              echo "Failed to trigger ephemeral environment."
-              exit 1
-            fi
+      - checkout
+      - run: pip install -r requirements.txt  # Install dependencies if any
       - persist_to_workspace:
           root: .
           paths:
-            - pipeline_id.txt
+            - .
 
-  check_pipeline_status:
-    executor: python-executor
+  unit_test:
+    executor: docker-executor
     steps:
       - attach_workspace:
           at: .
-      - run:
-          name: "Monitor Ephemeral Env Progress"
-          command: |
-            PIPELINE_ID=$(cat pipeline_id.txt)
+      - run: python -m unittest discover  # Run unit tests
 
-            while true; do
-              STATUS=$(curl -s -X GET -H "Circle-Token: $CIRCLECI_TOKEN" \
-                https://circleci.com/api/v2/pipeline/$PIPELINE_ID | jq -r '.state')
+  e2e_test:
+    executor: docker-executor
+    steps:
+      - attach_workspace:
+          at: .
+      - run: python -m pytest e2e_tests/  # Run end-to-end tests
 
-              echo "Current Status: $STATUS"
+  sast_scan:
+    executor: docker-executor
+    steps:
+      - attach_workspace:
+          at: .
+      - run: pip install bandit  # Example for a security scan tool
+      - run: bandit -r .  # Run security scan
 
-              if [[ "$STATUS" == "completed" ]]; then
-                echo "Ephemeral environment is ready!"
-                break
-              elif [[ "$STATUS" == "failed" ]]; then
-                echo "Ephemeral environment failed."
-                exit 1
-              fi
-              
-              sleep 30  # Check every 30 seconds
-            done
-
-  notify_approval:
-    executor: python-executor
+  trigger_ephemeral_env:
+    executor: docker-executor
     steps:
       - run:
-          name: "Notify Developers for Approval"
+          name: "Trigger Terraform Deployment"
           command: |
-            PR_NUMBER=$(echo "$CIRCLE_PULL_REQUEST" | awk -F'/' '{print $NF}')
-            
-            curl -X POST -H "Content-Type: application/json" \
-              -d '{"text": "Approval needed for PR #'$PR_NUMBER'. Approve in CircleCI: https://app.circleci.com/pipelines/github/YahyaMohand/ephemeral"}' \
-              $SLACK_WEBHOOK_URL
-
-  notify_ready:
-    executor: python-executor
-    steps:
-      - run:
-          name: "Notify When Environment is Ready"
-          command: |
-            PR_NUMBER=$(echo "$CIRCLE_PULL_REQUEST" | awk -F'/' '{print $NF}')
-            
-            curl -X POST -H "Content-Type: application/json" \
-              -d '{"text": "Ephemeral environment for PR #'$PR_NUMBER' is ready! ✅"}' \
-              $SLACK_WEBHOOK_URL
+            curl -X POST -H "Circle-Token: $CIRCLECI_TOKEN" \
+              -d '{ "branch": "main" }' \
+              https://circleci.com/api/v2/project/github/your-org/ephemeral-infra/pipeline
 
 workflows:
   version: 2
-  pr_workflow:
+  ci_pipeline:
     jobs:
-      - trigger_ephemeral_env
-      - check_pipeline_status:
+      - prepare_workspace
+      - unit_test:
           requires:
-            - trigger_ephemeral_env
-      - notify_approval:
+            - prepare_workspace
+      - e2e_test:
           requires:
-            - check_pipeline_status
-      - notify_ready:
+            - unit_test
+      - sast_scan:
           requires:
-            - notify_approval
+            - e2e_test
+      - trigger_ephemeral_env:
+          requires:
+            - sast_scan
