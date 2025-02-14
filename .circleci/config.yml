@@ -14,23 +14,19 @@ jobs:
           name: Trigger Ephemeral Environment
           command: |
             # Extract PR number from the GitHub URL
-            PR_NUMBER=${CIRCLE_PULL_REQUEST##*/}
-            
-            if [ -n "$PR_NUMBER" ]; then
+            if [[ -n "${CIRCLE_PULL_REQUEST}" ]]; then
+              PR_NUMBER=${CIRCLE_PULL_REQUEST##*/}
               echo "Extracted PR Number: ${PR_NUMBER}"
-              echo "Triggering ephemeral environment for PR #${PR_NUMBER}"
+              
+              JSON_PAYLOAD=$(jq -n \
+                --arg pr_number "$PR_NUMBER" \
+                --arg backend_sha "$CIRCLE_SHA1" \
+                '{branch: "main", parameters: {pipeline-parameter: {pr_number: $pr_number, backend_sha: $backend_sha}}}')
+
               curl -X POST \
                 -H "Circle-Token: ${CIRCLECI_TOKEN}" \
                 -H "Content-Type: application/json" \
-                -d '{
-                  "branch": "main",
-                  "parameters": {
-                    "pipeline-parameter": {
-                      "pr_number": "'${PR_NUMBER}'",
-                      "backend_sha": "'${CIRCLE_SHA1}'"
-                    }
-                  }
-                }' \
+                -d "$JSON_PAYLOAD" \
                 "https://circleci.com/api/v2/project/github/YahyaMohand/ephemeral/pipeline"
             else
               echo "No PR number found. Skipping ephemeral environment trigger."
