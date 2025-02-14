@@ -8,13 +8,11 @@ parameters:
   config-path:
     type: string
     default: ".circleci/pre-checks.yml"
-  pre-checks:
-    type: string
-    default: "true"  # or any other default value you want
 
 # Use orbs
 orbs:
   path-filtering: circleci/path-filtering@1.0.0
+  continuation: circleci/continuation@1.1.0
 
 # Define workflow to generate config
 workflows:
@@ -25,4 +23,4 @@ workflows:
           base-revision: main
           config-path: << pipeline.parameters.config-path >>
           mapping: |
-            .circleci/.* << pipeline.parameters.pre-checks >>
+            .circleci/.* run-checks-workflow true
