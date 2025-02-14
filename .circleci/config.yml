@@ -51,11 +51,6 @@ workflows:
   always-run:
     jobs:
       - path-filtering/filter:
-          name: check-updated-files
-          base-revision: main
-          mapping: |
-            .circleci/config.yml run-config true
-      - path-filtering/filter:
           name: check-pre-checks
           base-revision: main
           mapping: |
