@@ -18,21 +18,12 @@ jobs:
               PR_NUMBER=${CIRCLE_PULL_REQUEST##*/}
               echo "Extracted PR Number: ${PR_NUMBER}"
               
-              # Construct JSON payload correctly
-              JSON_PAYLOAD=$(cat <<EOF
-              {
-                "branch": "main",
-                "parameters": {
-                  "pr_number": "${PR_NUMBER}",
-                  "backend_sha": "${CIRCLE_SHA1}"
-                }
-              }
-              EOF
-              )
+              # Construct JSON payload without using here-doc
+              JSON_PAYLOAD="{\"branch\": \"main\", \"parameters\": {\"pr_number\": \"${PR_NUMBER}\", \"backend_sha\": \"${CIRCLE_SHA1}\"}}"
 
               echo "Sending JSON Payload: $JSON_PAYLOAD"
 
-              RESPONSE=$(curl -X POST \
+              RESPONSE=$(curl -s -X POST \
                 -H "Circle-Token: ${CIRCLECI_TOKEN}" \
                 -H "Content-Type: application/json" \
                 -d "$JSON_PAYLOAD" \
