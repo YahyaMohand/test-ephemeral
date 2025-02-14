@@ -1,39 +1,117 @@
 version: 2.1
 
+orbs:
+  python: circleci/python@2.1
+
 executors:
-  docker-executor:
+  python-executor:
     docker:
-      - image: circleci/python:3.8  # Use appropriate image for Python
+      - image: cimg/python:3.8
+
+commands:
+  install_dependencies:
+    steps:
+      - python/install-packages:
+          pkg-manager: pip
+          packages:
+            - pytest
+            - pytest-cov
+            - bandit
+            - safety
 
 jobs:
   prepare_workspace:
-    executor: docker-executor
+    executor: python-executor
     steps:
       - checkout
-      - run: pip install -r requirements.txt  # Install dependencies if any
+      - install_dependencies
       - persist_to_workspace:
           root: .
           paths:
             - .
 
-  trigger_ephemeral_env:
-    executor: docker-executor
+  unit_tests:
+    executor: python-executor
     steps:
       - attach_workspace:
           at: .
       - run:
-          name: "Trigger Ephemeral Environment Deployment"
+          name: Run Unit Tests
           command: |
-            echo "Current branch: $CIRCLE_BRANCH"
-            curl -X POST -H "Circle-Token: $CIRCLECI_TOKEN" \
-              -d '{ "branch": "main" }' \
-              https://circleci.com/api/v2/project/github/YahyaMohand/ephemeral/pipeline
+            pytest tests/unit --junitxml=test-results/unit/results.xml --cov=src
+      - store_test_results:
+          path: test-results
+      - store_artifacts:
+          path: test-results
+
+  integration_tests:
+    executor: python-executor
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Run Integration Tests
+          command: |
+            pytest tests/integration --junitxml=test-results/integration/results.xml
+      - store_test_results:
+          path: test-results
+
+  security_scan:
+    executor: python-executor
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Run Security Scans
+          command: |
+            bandit -r src -f json -o security-report.json
+            safety check
+      - store_artifacts:
+          path: security-report.json
+
+  trigger_ephemeral:
+    executor: python-executor
+    steps:
+      - run:
+          name: Trigger Ephemeral Environment
+          command: |
+            PR_NUMBER=${CIRCLE_PULL_REQUEST##*/}
+            if [ -n "$PR_NUMBER" ]; then
+              curl -X POST \
+                -H "Circle-Token: ${CIRCLECI_TOKEN}" \
+                -H "Content-Type: application/json" \
+                -d "{
+                  \"branch\": \"main\",
+                  \"parameters\": {
+                    \"pr_number\": \"${PR_NUMBER}\",
+                    \"backend_sha\": \"${CIRCLE_SHA1}\"
+                  }
+                }" \
+                "https://circleci.com/api/v2/project/github/YahyaMohand/ephemeral/pipeline"
+            else
+              echo "No PR number found. Skipping ephemeral environment trigger."
+            fi
 
 workflows:
   version: 2
-  ci_pipeline:
+  pr_workflow:
     jobs:
-      - prepare_workspace
-      - trigger_ephemeral_env:
+      - prepare_workspace:
+          filters:
+            branches:
+              ignore: main
+      - unit_tests:
           requires:
             - prepare_workspace
+      - integration_tests:
+          requires:
+            - unit_tests
+      - security_scan:
+          requires:
+            - prepare_workspace
+      - trigger_ephemeral:
+          requires:
+            - integration_tests
+            - security_scan
+          context:
+            - aws-cred
