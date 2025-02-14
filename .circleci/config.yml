@@ -19,11 +19,14 @@ jobs:
   trigger_ephemeral_env:
     executor: docker-executor
     steps:
+      - attach_workspace:
+          at: .
       - run:
-          name: "Trigger Terraform Deployment"
+          name: "Trigger Ephemeral Environment Deployment"
           command: |
+            echo "Current branch: $CIRCLE_BRANCH"
             curl -X POST -H "Circle-Token: $CIRCLECI_TOKEN" \
-              -d '{ "branch": "feat/trigger-from-backend-repo" }' \
+              -d '{ "branch": "'"$CIRCLE_BRANCH"'" }' \
               https://circleci.com/api/v2/project/github/YahyaMohand/ephemeral/pipeline
 
 workflows:
