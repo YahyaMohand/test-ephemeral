@@ -1,5 +1,10 @@
 version: 2.1
 
+executors:
+  docker-executor:
+    docker:
+      - image: circleci/node:18  # Use appropriate image
+
 jobs:
   trigger_ephemeral:
     executor: docker-executor
