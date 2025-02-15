@@ -39,8 +39,6 @@ jobs:
             else
               echo "No PR number found. Skipping ephemeral environment trigger."
             fi
-
-
       - run:
           name: Log Message
           command: |
