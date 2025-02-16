@@ -347,7 +347,9 @@ workflows:
       - e2e_test:
           requires:
             - prepare_workspace
-      - trigger-next-workflow
+      - trigger-next-workflow:
+          parameters:
+            continuation_key: $CIRCLE_CONTINUATION_KEY
       - hold_for_ephemeral_pipeline:
           type: approval
           requires:
