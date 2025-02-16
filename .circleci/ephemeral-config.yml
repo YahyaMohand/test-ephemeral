@@ -167,13 +167,15 @@ jobs:
       - setup_ephemeral_repo
       - terraform_init
       - terraform_plan
+      - run:
+          name: Store Continuation Key
+          command: |
+            mkdir -p ~/workspace
+            echo "$CIRCLE_CONTINUATION_KEY" > ~/workspace/continuation_key.txt
       - persist_to_workspace:
-          root: ~/project/ephemeral/terraform
+          root: ~/workspace
           paths:
-            - ephemeral/.terraform
-            - ephemeral/tfplan
-            - ephemeral/*.tf
-            - ephemeral/*.tfvars
+            - continuation_key.txt
 
   hold_for_schema_creation:
     executor: terraform-executor
@@ -224,20 +226,18 @@ jobs:
     executor: python-executor
     steps:
       - checkout
+      - attach_workspace:
+          at: ~/workspace  # Ensure we're retrieving the continuation key
       - run:
-          name: "Verify .circleci Directory Contents"
-          command: ls -la .circleci
-      - run:
-          name: "Trigger Destroy Pipeline with Continuation"
+          name: "Read Continuation Key from Workspace"
           command: |
-            CONFIG=$(base64 -w 0 .circleci/remove-ephemeral.yml)
-            curl -X POST "https://circleci.com/api/v2/pipeline/continue" \
-              -H "Circle-Token: $CIRCLE_CONTINUATION_KEY" \
-              -H "Content-Type: application/json" \
-              -d '{
-                    "continuation-key": "'"$CIRCLE_CONTINUATION_KEY"'",
-                    "configuration": "'"$CONFIG"'"
-                  }'
+            export CIRCLE_CONTINUATION_KEY=$(cat ~/workspace/continuation_key.txt)
+            echo "Using Continuation Key for next step: $CIRCLE_CONTINUATION_KEY"
+      - continuation/continue:
+          configuration_path: ".circleci/remove-ephemeral.yml"
+
+
+
 
 workflows:
   version: 2
