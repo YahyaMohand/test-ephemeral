@@ -198,7 +198,7 @@ jobs:
       - checkout
       - attach_workspace:
           at: .
-      - terraform_init
+      # - terraform_init
       - terraform_apply
 
   hold_for_cleanup:
