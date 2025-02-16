@@ -311,19 +311,19 @@ jobs:
           name: "Wait for Approval to Deploy Ephemeral Environment"
           command: echo "Click Approve to proceed."
           
-    setup-job:
-      docker:
-        - image: cimg/base:stable
-      steps:
-        - run:
-            name: Retrieve and Store Continuation Key
-            command: |
-              mkdir -p ~/workspace
-              echo "$CIRCLE_CONTINUATION_KEY" > ~/workspace/continuation_key.txt
-        - persist_to_workspace:
-            root: ~/workspace
-            paths:
-              - continuation_key.txt
+  setup-job:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - run:
+          name: Retrieve and Store Continuation Key
+          command: |
+            mkdir -p ~/workspace
+            echo "$CIRCLE_CONTINUATION_KEY" > ~/workspace/continuation_key.txt
+      - persist_to_workspace:
+          root: ~/workspace
+          paths:
+            - continuation_key.txt
 
 
   continue_ephemeral_pipeline:
