@@ -40,7 +40,7 @@ commands:
             git clone https://github.com/YahyaMohand/ephemeral.git terraform/ephemeral
       - run:
           name: "ls Ephemeral Repo"
-          command: ls -la 
+          command: ls -la terraform/ephemeral
 
   terraform_init:
     description: "Initialize Terraform"
@@ -49,7 +49,7 @@ commands:
       - run:
           name: "Terraform Init"
           command: |
-            cd ephemeral/terraform/ephemeral
+            cd terraform/ephemeral
             terraform init \
               -backend-config="key=ephemeral-environments/pr-<< pipeline.parameters.pr_number >>/terraform.tfstate"
 
@@ -59,7 +59,7 @@ commands:
       - run:
           name: "Terraform Plan"
           command: |
-            cd ephemeral/terraform/ephemeral
+            cd terraform/ephemeral
             terraform plan \
               -var-file="terraform.ephemeral.tfvars" \
               -var="pr_number=<< pipeline.parameters.pr_number >>" \
@@ -72,7 +72,7 @@ commands:
       - run:
           name: "Terraform Apply"
           command: |
-            cd ephemeral/terraform/ephemeral
+            cd terraform/ephemeral
             terraform apply -auto-approve tfplan
 
   terraform_destroy:
@@ -81,7 +81,7 @@ commands:
       - run:
           name: "Terraform Destroy"
           command: |
-            cd ephemeral/terraform/ephemeral
+            cd terraform/ephemeral
             terraform destroy -auto-approve \
               -var-file="terraform.ephemeral.tfvars" \
               -var="pr_number=<< pipeline.parameters.pr_number >>" \
