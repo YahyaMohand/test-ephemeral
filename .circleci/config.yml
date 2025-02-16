@@ -197,7 +197,7 @@ jobs:
     steps:
       - checkout
       - attach_workspace:
-          at: ephemeral/terraform
+          at: ephemeral/terraform/ephemeral
       - terraform_init
       - terraform_apply
 
