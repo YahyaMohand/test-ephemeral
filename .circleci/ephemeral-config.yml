@@ -225,13 +225,21 @@ jobs:
     steps:
       - checkout
       - run:
+          name: "Verify .circleci Directory Contents"
+          command: ls -la .circleci
+      - run:
+          name: "Pack the Destroy Pipeline Configuration"
+          command: |
+            cat .circleci/remove-ephemeral.yml | circleci config pack > destroy-packed.yml
+      - run:
           name: "Trigger Destroy Pipeline with Continuation"
           command: |
             curl -X POST "https://circleci.com/api/v2/pipeline/continue" \
               -H "Circle-Token: $CIRCLE_CONTINUATION_KEY" \
               -H "Content-Type: application/json" \
               -d '{
-                    "configuration_path": ".circleci/remove-ephemeral.yml"
+                    "continuation-key": "'"$CIRCLE_CONTINUATION_KEY"'",
+                    "configuration": "'"$(cat destroy-packed.yml)"'"
                   }'
 
 workflows:
