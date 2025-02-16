@@ -168,7 +168,7 @@ jobs:
       - terraform_init
       - terraform_plan
       - persist_to_workspace:
-          root: ephemeral/terraform/ephemeral
+          root: ephemeral/terraform
           paths:
             - ephemeral/.terraform
             - ephemeral/tfplan
