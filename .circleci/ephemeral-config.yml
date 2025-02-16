@@ -160,16 +160,6 @@ commands:
           command: |
             SESSION_ID=$(cat /tmp/ssm_session_id)
             AWS_PAGER="" aws ssm terminate-session --session-id $SESSION_ID --region me-south-1
-      
-  destroy_ephemeral_pipeline:
-    executor: python-executor
-    steps:
-      - checkout
-      - run:
-          name: "Verify .circleci Directory Contents"
-          command: ls -la .circleci
-      - continuation/continue:
-          configuration_path: ".circleci/remove-ephemeral.yml"
 
 jobs:
   plan:
@@ -232,24 +222,34 @@ jobs:
       - terraform_init
       - terraform_destroy
 
+  destroy_ephemeral_pipeline:
+    executor: python-executor
+    steps:
+      - checkout
+      - run:
+          name: "Verify .circleci Directory Contents"
+          command: ls -la .circleci
+      - continuation/continue:
+          configuration_path: ".circleci/remove-ephemeral.yml"
+
 workflows:
   version: 2
   ephemeral-pipeline:
     jobs:
       - plan:
           context: aws-creds
-      - hold_for_schema_creation:
-          type: approval
-          requires:
-            - plan
-      - create_schema:
-          requires:
-            - hold_for_schema_creation
-          context: aws-creds
-      - apply:
-          requires:
-            - create_schema
-          context: aws-creds
+      # - hold_for_schema_creation:
+      #     type: approval
+      #     requires:
+      #       - plan
+      # - create_schema:
+      #     requires:
+      #       - hold_for_schema_creation
+      #     context: aws-creds
+      # - apply:
+      #     requires:
+      #       - create_schema
+      #     context: aws-creds
       - hold_for_remove_ephemeral_pipeline:
           type: approval
           requires:
