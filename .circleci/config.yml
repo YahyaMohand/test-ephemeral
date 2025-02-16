@@ -322,17 +322,17 @@ jobs:
           configuration_path: ".circleci/ephemeral-config.yml"
 
 
-  trigger-next-workflow:
-    parameters:
-      continuation_key:
-        type: string
-    docker:
-      - image: cimg/base:stable
-    steps:
-      - run:
-          name: Continue Pipeline
-          command: |
-            circleci pipeline continue --parameters continuation_key="$CIRCLE_CONTINUATION_KEY"
+  # trigger-next-workflow:
+  #   parameters:
+  #     continuation_key:
+  #       type: string
+  #   docker:
+  #     - image: cimg/base:stable
+  #   steps:
+  #     - run:
+  #         name: Continue Pipeline
+  #         command: |
+  #           circleci pipeline continue --parameters continuation_key="$CIRCLE_CONTINUATION_KEY"
 
 
 
@@ -347,9 +347,6 @@ workflows:
       - e2e_test:
           requires:
             - prepare_workspace
-      - trigger-next-workflow:
-          parameters:
-            continuation_key: $CIRCLE_CONTINUATION_KEY
       - hold_for_ephemeral_pipeline:
           type: approval
           requires:
