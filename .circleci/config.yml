@@ -176,12 +176,12 @@ jobs:
           command: |
             ls -l ephemeral/terraform/ephemeral
       - persist_to_workspace:
-          root: ephemeral/terraform/ephemeral
+          root: ephemeral/terraform
           paths:
-            - ephemeral/ephemeral/.terraform
-            - ephemeral/ephemeral/tfplan
-            - ephemeral/ephemeral/*.tf
-            - ephemeral/ephemeral/*.tfvars
+            - ephemeral/terraform/.terraform
+            - ephemeral/terraform/tfplan
+            - ephemeral/terraform/*.tf
+            - ephemeral/terraform/*.tfvars
 
   hold_for_schema_creation:
     executor: terraform-executor
