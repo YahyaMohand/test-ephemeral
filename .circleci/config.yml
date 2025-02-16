@@ -264,10 +264,6 @@ version: 2.1
 
 setup : true
 
-parameters:
-  continuation_key:
-    type: string
-
 orbs:
   continuation: circleci/continuation@1
   circleci-cli: circleci/circleci-cli@0.1.9
@@ -327,6 +323,9 @@ jobs:
 
 
   trigger-next-workflow:
+    parameters:
+    continuation_key:
+      type: string
     docker:
       - image: cimg/base:stable
     steps:
