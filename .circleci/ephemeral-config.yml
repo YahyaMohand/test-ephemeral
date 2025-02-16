@@ -227,7 +227,7 @@ jobs:
       - run:
           name: "Trigger Destroy Pipeline with Continuation"
           command: |
-            curl -X POST "https://circleci.com/api/v2/workflow/continue" \
+            curl -X POST "https://circleci.com/api/v2/pipeline/continue" \
               -H "Circle-Token: $CIRCLE_CONTINUATION_KEY" \
               -H "Content-Type: application/json" \
               -d '{
