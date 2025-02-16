@@ -3,7 +3,7 @@ version: 2.1
 parameters:
   pr_number:
     type: string
-    default: ${CIRCLE_PR_NUMBER}
+    default: ${CIRCLE_PULL_REQUEST##*/}
   pr_branch:
     type: string
     default: ${CIRCLE_BRANCH}
