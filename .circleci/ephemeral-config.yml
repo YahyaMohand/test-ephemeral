@@ -259,6 +259,7 @@ workflows:
   version: 2
   ephemeral-pipeline:
     jobs:
+      - setup-job
       - plan:
           context: aws-creds
       # - hold_for_schema_creation:
