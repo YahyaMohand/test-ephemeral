@@ -1,3 +1,67 @@
+# version: 2.1
+
+# executors:
+#   python-executor:
+#     docker:
+#       - image: cimg/python:3.8
+
+# jobs:
+#   hold_for_trigger:
+#     executor: python-executor
+#     steps:
+#       - run:
+#           name: "Waiting for Manual Approval"
+#           command: |
+#             echo "Click 'Approve' in CircleCI to trigger the ephemeral environment."
+
+#   trigger_ephemeral:
+#     executor: python-executor
+#     steps:
+#       - checkout
+#       - run:
+#           name: Trigger Ephemeral Environment
+#           command: |
+#             if [[ -n "${CIRCLE_PULL_REQUEST}" ]]; then
+#               PR_NUMBER=${CIRCLE_PULL_REQUEST##*/}
+#               echo "Extracted PR Number: ${PR_NUMBER}"
+
+#               JSON_PAYLOAD="{\"branch\": \"fix/show-pr-name-from-backend\", \"parameters\": {\"pr_number\": \"${PR_NUMBER}\", \"pr_branch\": \"${CIRCLE_BRANCH}\"}}"
+
+#               echo "Sending JSON Payload: $JSON_PAYLOAD"
+
+#               RESPONSE=$(curl -s -X POST \
+#                 -H "Circle-Token: ${CIRCLECI_TOKEN}" \
+#                 -H "Content-Type: application/json" \
+#                 -d "$JSON_PAYLOAD" \
+#                 "https://circleci.com/api/v2/project/github/YahyaMohand/ephemeral/pipeline")
+
+#               echo "Response from CircleCI: $RESPONSE"
+#             else
+#               echo "No PR number found. Skipping ephemeral environment trigger."
+#             fi
+#       - run:
+#           name: Log Message
+#           command: |
+#             echo "Ephemeral environment for PR #${CIRCLE_BRANCH} is being built. You can check progress in the [CircleCI UI](https://app.circleci.com/pipelines/github/YahyaMohand/ephemeral)."
+
+# workflows:
+#   version: 2
+#   pr_workflow:
+#     jobs:
+#       - hold_for_trigger:
+#           type: approval
+#           filters:
+#             branches:
+#               ignore: main
+#       - trigger_ephemeral:
+#           requires:
+#             - hold_for_trigger
+#           context: aws-creds
+#           filters:
+#             branches:
+#               ignore: main
+
+
 version: 2.1
 
 executors:
@@ -14,35 +78,20 @@ jobs:
           command: |
             echo "Click 'Approve' in CircleCI to trigger the ephemeral environment."
 
-  trigger_ephemeral:
-    executor: python-executor
+  ephemeral_deployment:
+    description: "Deploy Ephemeral Environment for PR"
+    parameters:
+      pr_number:
+        type: string
+      pr_branch:
+        type: string
     steps:
-      - checkout
-      - run:
-          name: Trigger Ephemeral Environment
-          command: |
-            if [[ -n "${CIRCLE_PULL_REQUEST}" ]]; then
-              PR_NUMBER=${CIRCLE_PULL_REQUEST##*/}
-              echo "Extracted PR Number: ${PR_NUMBER}"
-
-              JSON_PAYLOAD="{\"branch\": \"fix/show-pr-name-from-backend\", \"parameters\": {\"pr_number\": \"${PR_NUMBER}\", \"pr_branch\": \"${CIRCLE_BRANCH}\"}}"
-
-              echo "Sending JSON Payload: $JSON_PAYLOAD"
-
-              RESPONSE=$(curl -s -X POST \
-                -H "Circle-Token: ${CIRCLECI_TOKEN}" \
-                -H "Content-Type: application/json" \
-                -d "$JSON_PAYLOAD" \
-                "https://circleci.com/api/v2/project/github/YahyaMohand/ephemeral/pipeline")
-
-              echo "Response from CircleCI: $RESPONSE"
-            else
-              echo "No PR number found. Skipping ephemeral environment trigger."
-            fi
-      - run:
-          name: Log Message
-          command: |
-            echo "Ephemeral environment for PR #${CIRCLE_BRANCH} is being built. You can check progress in the [CircleCI UI](https://app.circleci.com/pipelines/github/YahyaMohand/ephemeral)."
+      - trigger:
+          project: "YahyaMohnd/ephemeral"
+          branch: "main"
+          parameters:
+            pr_number: "<< parameters.pr_number >>"
+            pr_branch: "<< parameters.pr_branch >>"
 
 workflows:
   version: 2
@@ -53,10 +102,13 @@ workflows:
           filters:
             branches:
               ignore: main
-      - trigger_ephemeral:
+      - ephemeral_deployment:
           requires:
             - hold_for_trigger
-          context: aws-creds
           filters:
             branches:
               ignore: main
+          parameters:
+            pr_number: "<< pipeline.parameters.CIRCLE_PULL_REQUEST >>"
+            pr_branch: "<< pipeline.parameters.CIRCLE_BRANCH >>"
+
