@@ -1,11 +1,5 @@
 version: 2.1
 
-setup : true
-
-orbs:
-  continuation: circleci/continuation@1
-  circleci-cli: circleci/circleci-cli@0.1.9
-
 parameters:
   pr_number:
     type: string
@@ -68,15 +62,6 @@ commands:
               -var="pr_number=<< pipeline.parameters.pr_number >>" \
               -var="is_backend=true" \
               -out=tfplan
-
-  terraform_apply:
-    description: "Run Terraform Apply"
-    steps:
-      - run:
-          name: "Terraform Apply"
-          command: |
-            cd ephemeral/terraform/ephemeral
-            terraform apply -auto-approve tfplan
 
   terraform_destroy:
     description: "Run Terraform Destroy"
@@ -160,16 +145,6 @@ commands:
           command: |
             SESSION_ID=$(cat /tmp/ssm_session_id)
             AWS_PAGER="" aws ssm terminate-session --session-id $SESSION_ID --region me-south-1
-      
-  destroy_ephemeral_pipeline:
-    executor: python-executor
-    steps:
-      - checkout
-      - run:
-          name: "Verify .circleci Directory Contents"
-          command: ls -la .circleci
-      - continuation/continue:
-          configuration_path: ".circleci/remove-ephemeral.yml"
 
 jobs:
   plan:
@@ -186,29 +161,6 @@ jobs:
             - ephemeral/tfplan
             - ephemeral/*.tf
             - ephemeral/*.tfvars
-
-  hold_for_schema_creation:
-    executor: terraform-executor
-    steps:
-      - run:
-          name: "Wait for Approval to Create Schema and Apply"
-          command: echo "Click Approve to proceed."
-
-  create_schema:
-    executor: node-executor
-    steps:
-      - manage_schema:
-          action: "create"
-
-  apply:
-    executor: terraform-executor
-    steps:
-      - checkout
-      - attach_workspace:
-          at: ~/project/ephemeral
-      - terraform_init
-      - terraform_plan
-      - terraform_apply
 
   hold_for_cleanup:
     executor: terraform-executor
@@ -242,31 +194,15 @@ workflows:
           type: approval
           requires:
             - plan
-      - create_schema:
-          requires:
-            - hold_for_schema_creation
-          context: aws-creds
-      - apply:
-          requires:
-            - create_schema
-          context: aws-creds
-      - hold_for_remove_ephemeral_pipeline:
+      - hold_for_cleanup:
           type: approval
           requires:
-            - apply
-      - destroy_ephemeral_pipeline:
+            - plan
+      - cleanup_schema:
           requires:
-            - hold_for_remove_ephemeral_pipeline
+            - hold_for_cleanup
           context: aws-creds
-      # - hold_for_cleanup:
-      #     type: approval
-      #     requires:
-      #       - apply
-      # - cleanup_schema:
-      #     requires:
-      #       - hold_for_cleanup
-      #     context: aws-creds
-      # - cleanup:
-      #     requires:
-      #       - cleanup_schema
-      #     context: aws-creds
+      - cleanup:
+          requires:
+            - cleanup_schema
+          context: aws-creds
