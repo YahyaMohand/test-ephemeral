@@ -319,11 +319,14 @@ jobs:
             curl -fLSs https://raw.githubusercontent.com/CircleCI-Public/circleci-cli/master/install.sh | sudo bash
             circleci version
       - run:
-          name: "Trigger Ephemeral Pipeline"
+          name: "Pack the Ephemeral Pipeline Configuration"
           command: |
-            circleci pipeline trigger \
-              --config .circleci/ephemeral-config.yml \
-              --pipeline-parameters '{}'
+            circleci config pack .circleci/ephemeral-config.yml > ephemeral-packed.yml
+      - run:
+          name: "Trigger Ephemeral Pipeline with Continuation"
+          command: |
+            circleci continuation continue \
+              -F ephemeral-packed.yml
 
 workflows:
   version: 2
