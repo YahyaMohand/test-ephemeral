@@ -262,7 +262,7 @@
 
 version: 2.1
 
-setup : true
+setup: true
 
 orbs:
   continuation: circleci/continuation@1
@@ -311,33 +311,33 @@ jobs:
           name: "Wait for Approval to Deploy Ephemeral Environment"
           command: echo "Click Approve to proceed."
           
-  continue_ephemeral_pipeline:
-    executor: python-executor
-    steps:
-      - checkout
-      - run:
-          name: "Verify .circleci Directory Contents"
-          command: ls -la .circleci
-      - continuation/continue:
-          configuration_path: ".circleci/ephemeral-config.yml"
-
-
-
   setup-job:
     docker:
       - image: cimg/base:stable
     steps:
       - run:
-          name: Retrieve Continuation Key
+          name: Retrieve and Store Continuation Key
           command: |
-            echo "CIRCLE_CONTINUATION_KEY=${CIRCLE_CONTINUATION_KEY}"
+            echo "$CIRCLE_CONTINUATION_KEY" > /tmp/continuation_key.txt
+            cat /tmp/continuation_key.txt  # This ensures the key is stored correctly
       - persist_to_workspace:
           root: /tmp
           paths:
             - continuation_key.txt
 
-
-
+  continue_ephemeral_pipeline:
+    executor: python-executor
+    steps:
+      - checkout
+      - attach_workspace:
+          at: /tmp
+      - run:
+          name: Read and Use Continuation Key
+          command: |
+            export CIRCLE_CONTINUATION_KEY=$(cat /tmp/continuation_key.txt)
+            echo "Using Continuation Key: $CIRCLE_CONTINUATION_KEY"
+      - continuation/continue:
+          configuration_path: ".circleci/ephemeral-config.yml"
 
 workflows:
   version: 2
@@ -359,3 +359,4 @@ workflows:
       - continue_ephemeral_pipeline:
           requires:
             - hold_for_ephemeral_pipeline
+
