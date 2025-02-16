@@ -171,17 +171,13 @@ jobs:
       - setup_ephemeral_repo
       - terraform_init
       - terraform_plan
-      - run:
-          name: "List files before persisting workspace"
-          command: |
-            ls -l ephemeral/terraform/ephemeral
       - persist_to_workspace:
           root: ephemeral/terraform
           paths:
-            - ephemeral/terraform/.terraform
-            - ephemeral/terraform/tfplan
-            - ephemeral/terraform/*.tf
-            - ephemeral/terraform/*.tfvars
+            - ephemeral/.terraform
+            - ephemeral/tfplan
+            - ephemeral/*.tf
+            - ephemeral/*.tfvars
 
   hold_for_schema_creation:
     executor: terraform-executor
@@ -202,10 +198,6 @@ jobs:
       - checkout
       - attach_workspace:
           at: ephemeral/terraform
-      - run:
-          name: "Check if tfplan Exists"
-          command: |
-            ls -l ephemeral/terraform/ephemeral
       - terraform_init
       - terraform_apply
 
