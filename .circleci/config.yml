@@ -217,10 +217,12 @@ workflows:
   version: 2
   test-pipeline:
     jobs:
-      - plan
+      - plan:
+          context: aws-creds
       - apply:
           requires:
             - plan
+          context: aws-creds
       - create_schema:
           requires:
             - apply
@@ -230,6 +232,8 @@ workflows:
       - cleanup_schema:
           requires:
             - test
+          context: aws-creds
       - cleanup:
           requires:
             - cleanup_schema
+          context: aws-creds
