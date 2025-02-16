@@ -79,6 +79,7 @@ jobs:
             echo "Click 'Approve' in CircleCI to trigger the ephemeral environment."
 
   ephemeral_deployment:
+    executor: python-executor
     description: "Deploy Ephemeral Environment for PR"
     parameters:
       pr_number:
