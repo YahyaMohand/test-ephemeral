@@ -264,6 +264,10 @@ version: 2.1
 
 setup : true
 
+parameters:
+  continuation_key:
+    type: string
+
 orbs:
   continuation: circleci/continuation@1
   circleci-cli: circleci/circleci-cli@0.1.9
@@ -321,6 +325,18 @@ jobs:
       - continuation/continue:
           configuration_path: ".circleci/ephemeral-config.yml"
 
+
+  trigger-next-workflow:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - run:
+          name: Continue Pipeline
+          command: |
+            circleci pipeline continue --parameters continuation_key="$CIRCLE_CONTINUATION_KEY"
+
+
+
 workflows:
   version: 2
   backend-pipeline:
@@ -332,6 +348,7 @@ workflows:
       - e2e_test:
           requires:
             - prepare_workspace
+      - trigger-next-workflow
       - hold_for_ephemeral_pipeline:
           type: approval
           requires:
