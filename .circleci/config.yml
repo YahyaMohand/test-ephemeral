@@ -1,32 +1,64 @@
 version: 2.1
 
-setup: true
-
-orbs:
-  continuation: circleci/continuation@1
-  circleci-cli: circleci/circleci-cli@0.1.9
+executors:
+  python-executor:
+    docker:
+      - image: cimg/python:3.8
 
 jobs:
-  setup:
-    executor: continuation/default
+  hold_for_trigger:
+    executor: python-executor
+    steps:
+      - run:
+          name: "Waiting for Manual Approval"
+          command: |
+            echo "Click 'Approve' in CircleCI to trigger the ephemeral environment."
+
+  trigger_ephemeral:
+    executor: python-executor
     steps:
       - checkout
-      - circleci-cli/install
       - run:
-          name: Set Environment
+          name: Trigger Ephemeral Environment
           command: |
-            chmod u+x .circleci/use_env.sh
-            ./.circleci/use_env.sh
-            source $BASH_ENV
-            echo "Using config: $CONFIG_PATH"
-            circleci config process "$CONFIG_PATH" > generated_config.yml
+            if [[ -n "${CIRCLE_PULL_REQUEST}" ]]; then
+              PR_NUMBER=${CIRCLE_PULL_REQUEST##*/}
+              echo "Extracted PR Number: ${PR_NUMBER}"
+
+              JSON_PAYLOAD="{\"branch\": \"fix/show-pr-name-from-backend\", \"parameters\": {\"pr_number\": \"${PR_NUMBER}\", \"pr_branch\": \"${CIRCLE_BRANCH}\"}}"
+
+              echo "Sending JSON Payload: $JSON_PAYLOAD"
+
+              RESPONSE=$(curl -s -X POST \
+                -H "Circle-Token: ${CIRCLECI_TOKEN}" \
+                -H "Content-Type: application/json" \
+                -d "$JSON_PAYLOAD" \
+                "https://circleci.com/api/v2/project/github/YahyaMohand/ephemeral/pipeline")
+
+              echo "Response from CircleCI: $RESPONSE"
+            else
+              echo "No PR number found. Skipping ephemeral environment trigger."
+            fi
       - run:
-          name: Debug - Print Selected Config
-          command: cat generated_config.yml
-      - continuation/continue:
-          configuration_path: generated_config.yml
+          name: Log Message
+          command: |
+            echo "Ephemeral environment for PR #${CIRCLE_BRANCH} is being built. You can check progress in the [CircleCI UI](https://app.circleci.com/pipelines/github/YahyaMohand/ephemeral)."
 
 workflows:
-  run-environment-selector:
+  version: 2
+  pr_workflow:
     jobs:
-      - setup
+      - hold_for_trigger:
+          type: approval
+          filters:
+            branches:
+              ignore: main
+      - trigger_ephemeral:
+          requires:
+            - hold_for_trigger
+          context: aws-creds
+          filters:
+            branches:
+              ignore: main
+
+
