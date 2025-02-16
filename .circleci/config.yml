@@ -176,7 +176,7 @@ jobs:
           command: |
             ls -l ephemeral/terraform/ephemeral
       - persist_to_workspace:
-          root: ephemeral/terraform/
+          root: ephemeral/terraform/ephemeral
           paths:
             - ephemeral/ephemeral/.terraform
             - ephemeral/ephemeral/tfplan
