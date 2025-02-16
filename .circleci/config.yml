@@ -1,5 +1,7 @@
 version: 2.1
 
+jobs: !include jobs.yml
+
 parameters:
   pr_number:
     type: string
