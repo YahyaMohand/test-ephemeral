@@ -46,7 +46,7 @@ commands:
       - run:
           name: "Terraform Init"
           command: |
-            cd terraform/ephemeral
+            cd ephemeral/terraform/ephemeral
             terraform init \
               -backend-config="key=ephemeral-environments/pr-<< pipeline.parameters.pr_number >>/terraform.tfstate"
 
@@ -56,7 +56,7 @@ commands:
       - run:
           name: "Terraform Plan"
           command: |
-            cd terraform/ephemeral
+            cd ephemeral/terraform/ephemeral
             terraform plan \
               -var-file="terraform.ephemeral.tfvars" \
               -var="pr_number=<< pipeline.parameters.pr_number >>" \
@@ -69,7 +69,7 @@ commands:
       - run:
           name: "Terraform Apply"
           command: |
-            cd terraform/ephemeral
+            cd ephemeral/terraform/ephemeral
             terraform apply -auto-approve tfplan
 
   terraform_destroy:
@@ -78,7 +78,7 @@ commands:
       - run:
           name: "Terraform Destroy"
           command: |
-            cd terraform/ephemeral
+            cd ephemeral/terraform/ephemeral
             terraform destroy -auto-approve \
               -var-file="terraform.ephemeral.tfvars" \
               -var="pr_number=<< pipeline.parameters.pr_number >>" \
@@ -168,7 +168,7 @@ jobs:
       - terraform_init
       - terraform_plan
       - persist_to_workspace:
-          root: ephemeral/terraform
+          root: ephemeral/terraform/ephemeral
           paths:
             - ephemeral/.terraform
             - ephemeral/tfplan
@@ -180,7 +180,7 @@ jobs:
     steps:
       - checkout
       - attach_workspace:
-          at: terraform
+          at: ephemeral/terraform
       - terraform_init
       - terraform_apply
 
