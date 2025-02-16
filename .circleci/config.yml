@@ -92,30 +92,31 @@ jobs:
               PR_NUMBER="unknown"
             fi
 
-            echo "export PR_NUMBER=${PR_NUMBER}" >> $BASH_ENV
-            echo "export PR_BRANCH=${CIRCLE_BRANCH}" >> $BASH_ENV
-
-      - run:
-          name: "Verify Extracted Variables"
-          command: |
-            echo "Extracted PR Number: $PR_NUMBER"
-            echo "Extracted PR Branch: $PR_BRANCH"
+            echo "PR_NUMBER=${PR_NUMBER}" > /tmp/pr_details.env
+            echo "PR_BRANCH=${CIRCLE_BRANCH}" >> /tmp/pr_details.env
+      - persist_to_workspace:
+          root: /tmp
+          paths:
+            - pr_details.env
 
   ephemeral_deployment:
     executor: python-executor
-    description: "Deploy Ephemeral Environment for PR"
-    parameters:
-      pr_number:
-        type: string
-      pr_branch:
-        type: string
     steps:
+      - attach_workspace:
+          at: /tmp
+      - run:
+          name: "Load PR Details"
+          command: |
+            source /tmp/pr_details.env
+            echo "PR Number: $PR_NUMBER"
+            echo "PR Branch: $PR_BRANCH"
+
       - trigger:
           project: "YahyaMohnd/ephemeral"
           branch: "main"
           parameters:
-            pr_number: "<< parameters.pr_number >>"
-            pr_branch: "<< parameters.pr_branch >>"
+            pr_number: "<< pipeline.parameters.pr_number >>"
+            pr_branch: "<< pipeline.parameters.pr_branch >>"
 
 workflows:
   version: 2
@@ -138,7 +139,4 @@ workflows:
           filters:
             branches:
               ignore: main
-          parameters:
-            pr_number: "$PR_NUMBER"
-            pr_branch: "$PR_BRANCH"
 
