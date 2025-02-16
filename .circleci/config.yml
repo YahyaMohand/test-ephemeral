@@ -78,6 +78,29 @@ jobs:
           command: |
             echo "Click 'Approve' in CircleCI to trigger the ephemeral environment."
 
+  extract_pr_details:
+    executor: python-executor
+    steps:
+      - run:
+          name: "Extract PR Number and Branch"
+          command: |
+            echo "Extracting PR details..."
+            
+            if [[ -n "${CIRCLE_PULL_REQUEST}" ]]; then
+              PR_NUMBER=$(basename "${CIRCLE_PULL_REQUEST}")
+            else
+              PR_NUMBER="unknown"
+            fi
+
+            echo "export PR_NUMBER=${PR_NUMBER}" >> $BASH_ENV
+            echo "export PR_BRANCH=${CIRCLE_BRANCH}" >> $BASH_ENV
+
+      - run:
+          name: "Verify Extracted Variables"
+          command: |
+            echo "Extracted PR Number: $PR_NUMBER"
+            echo "Extracted PR Branch: $PR_BRANCH"
+
   ephemeral_deployment:
     executor: python-executor
     description: "Deploy Ephemeral Environment for PR"
@@ -103,13 +126,19 @@ workflows:
           filters:
             branches:
               ignore: main
-      - ephemeral_deployment:
+      - extract_pr_details:
           requires:
             - hold_for_trigger
           filters:
             branches:
               ignore: main
+      - ephemeral_deployment:
+          requires:
+            - extract_pr_details
+          filters:
+            branches:
+              ignore: main
           parameters:
-            pr_number: "<< pipeline.parameters.CIRCLE_PULL_REQUEST >>"
-            pr_branch: "<< pipeline.parameters.CIRCLE_BRANCH >>"
+            pr_number: "$PR_NUMBER"
+            pr_branch: "$PR_BRANCH"
 
