@@ -172,12 +172,12 @@ jobs:
       - terraform_init
       - terraform_plan
       - persist_to_workspace:
-          root: ephemeral/terraform
+          root: ~/project/ephemeral
           paths:
-            - ephemeral/.terraform
-            - ephemeral/tfplan
-            - ephemeral/*.tf
-            - ephemeral/*.tfvars
+            - terraform/ephemeral/.terraform
+            - terraform/ephemeral/tfplan
+            - terraform/ephemeral/*.tf
+            - terraform/ephemeral/*.tfvars
 
   hold_for_schema_creation:
     executor: terraform-executor
@@ -197,8 +197,8 @@ jobs:
     steps:
       - checkout
       - attach_workspace:
-          at: .
-      # - terraform_init
+          at: ~/project/ephemeral
+      - terraform_init
       - terraform_apply
 
   hold_for_cleanup:
