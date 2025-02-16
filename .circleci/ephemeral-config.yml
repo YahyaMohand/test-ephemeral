@@ -235,7 +235,7 @@ jobs:
               -H "Content-Type: application/json" \
               -d '{
                     "continuation-key": "'"$CIRCLE_CONTINUATION_KEY"'",
-                    "configuration": "'"$(remove-ephemeral.yml)"'"
+                    "configuration": "'"$(cat remove-ephemeral.yml)"'"
                   }'
 
 workflows:
