@@ -1,5 +1,14 @@
 version: 2.1
 
+parameters:
+  pr_number:
+    type: string
+    default: ${CIRCLE_PR_NUMBER}
+  pr_branch:
+    type: string
+    default: ${CIRCLE_BRANCH}
+
+
 executors:
   python-executor:
     docker:
