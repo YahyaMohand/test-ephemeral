@@ -309,28 +309,15 @@ jobs:
           name: "Wait for Approval to Deploy Ephemeral Environment"
           command: echo "Click Approve to proceed."
           
-  trigger_ephemeral_pipeline:
+  continue_ephemeral_pipeline:
     executor: python-executor
     steps:
       - checkout
       - run:
-          name: Install CircleCI CLI
-          command: |
-            sudo apt-get update && sudo apt-get install -y curl
-            curl -fLSs https://raw.githubusercontent.com/CircleCI-Public/circleci-cli/master/install.sh | sudo bash
-            circleci version
-      - run:
           name: "Verify .circleci Directory Contents"
           command: ls -la .circleci
-      - run:
-          name: "Pack the Ephemeral Pipeline Configuration"
-          command: |
-            circleci config pack .circleci/ephemeral-config.yml > ephemeral-packed.yml
-      - run:
-          name: "Trigger Ephemeral Pipeline with Continuation"
-          command: |
-            circleci continuation continue \
-              -F ephemeral-packed.yml
+      - continuation/continue:
+          configuration_path: ".circleci/ephemeral-config.yml"
 
 workflows:
   version: 2
@@ -348,6 +335,6 @@ workflows:
           requires:
             - unit_test
             - e2e_test
-      - trigger_ephemeral_pipeline:
+      - continue_ephemeral_pipeline:
           requires:
             - hold_for_ephemeral_pipeline
