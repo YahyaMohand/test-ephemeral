@@ -1,32 +1,21 @@
 version: 2.1
 
-setup: true
-
-orbs:
-  continuation: circleci/continuation@1
-  circleci-cli: circleci/circleci-cli@0.1.9
+executors:
+  python-executor:
+    docker:
+      - image: cimg/python:3.9
 
 jobs:
-  setup:
-    executor: continuation/default
+  test:
+    executor: python-executor
     steps:
       - checkout
-      - circleci-cli/install
       - run:
-          name: Set Environment
-          command: |
-            chmod u+x .circleci/use_env.sh
-            ./.circleci/use_env.sh
-            source $BASH_ENV
-            echo "Using config: $CONFIG_PATH"
-            circleci config process "$CONFIG_PATH" > generated_config.yml
-      - run:
-          name: Debug - Print Selected Config
-          command: cat generated_config.yml
-      - continuation/continue:
-          configuration_path: generated_config.yml
+          name: Run main.py
+          command: python main.py
 
 workflows:
-  run-environment-selector:
+  version: 2
+  test-pipeline:
     jobs:
-      - setup
+      - test
