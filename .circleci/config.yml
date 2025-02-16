@@ -313,9 +313,15 @@ jobs:
     executor: python-executor
     steps:
       - run:
+          name: Install CircleCI CLI
+          command: |
+            sudo apt-get update && sudo apt-get install -y curl
+            curl -fLSs https://raw.githubusercontent.com/CircleCI-Public/circleci-cli/master/install.sh | sudo bash
+            circleci version
+      - run:
           name: "Trigger Ephemeral Pipeline"
           command: |
-            circleci-cli trigger-pipeline \
+            circleci pipeline trigger \
               --config .circleci/ephemeral-config.yml \
               --pipeline-parameters '{}'
 
