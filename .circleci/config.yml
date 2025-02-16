@@ -33,6 +33,7 @@ commands:
       - run:
           name: "Ensure fresh ephemeral repo"
           command: |
+            rm -rf ephemeral
             git clone https://github.com/YahyaMohand/ephemeral.git
       - run:
           name: "ls Ephemeral Repo"
