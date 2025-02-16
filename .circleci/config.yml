@@ -38,7 +38,7 @@ commands:
   terraform_init:
     description: "Initialize Terraform"
     steps:
-      - setup_ephemeral_repo
+      # - setup_ephemeral_repo
       - run:
           name: "Terraform Init"
           command: |
