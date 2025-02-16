@@ -172,7 +172,7 @@ jobs:
       - terraform_init
       - terraform_plan
       - persist_to_workspace:
-          root: ephemeral/terraform
+          root: ephemeral/terraform/
           paths:
             - ephemeral/.terraform
             - ephemeral/tfplan
@@ -197,7 +197,7 @@ jobs:
     steps:
       - checkout
       - attach_workspace:
-          at: ephemeral/terraform/ephemeral
+          at: ephemeral/terraform
       - terraform_init
       - terraform_apply
 
