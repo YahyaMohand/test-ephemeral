@@ -252,8 +252,8 @@ workflows:
       #     context: aws-creds
       - hold_for_remove_ephemeral_pipeline:
           type: approval
-          requires:
-            - apply
+          # requires:
+          #   - apply
       - destroy_ephemeral_pipeline:
           requires:
             - hold_for_remove_ephemeral_pipeline
