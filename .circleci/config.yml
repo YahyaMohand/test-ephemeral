@@ -27,18 +27,18 @@ executors:
       - image: amazon/aws-cli:2.13.0
 
 commands:
-  # setup_ephemeral_repo:
-  #   description: "Clone the ephemeral Terraform repository"
-  #   steps:
-  #     - run:
-  #         name: "Clone Ephemeral Repo"
-  #         command: |
-  #           git clone https://github.com/YahyaMohand/ephemeral.git
+  setup_ephemeral_repo:
+    description: "Clone the ephemeral Terraform repository"
+    steps:
+      - run:
+          name: "Clone Ephemeral Repo"
+          command: |
+            git clone https://github.com/YahyaMohand/ephemeral.git
 
   terraform_init:
     description: "Initialize Terraform"
     steps:
-      # - setup_ephemeral_repo
+      - setup_ephemeral_repo
       - run:
           name: "Terraform Init"
           command: |
@@ -156,7 +156,7 @@ jobs:
     executor: terraform-executor
     steps:
       - checkout
-      # - setup_ephemeral_repo
+      - setup_ephemeral_repo
       - run:
           name: Show Backend PR Branch
           command: |
