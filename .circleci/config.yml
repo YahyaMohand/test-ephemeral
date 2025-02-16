@@ -158,8 +158,9 @@ jobs:
       - checkout
       - setup_ephemeral_repo
       - run:
-          name: "Show Backend PR Branch"
-          command: echo "This ephemeral environment is running for PR: << pipeline.parameters.pr_branch >>"
+          name: Show Backend PR Branch
+          command: |
+            echo "This ephemeral environment is running for the backend PR branch: << pipeline.parameters.pr_branch >>"
       - terraform_init
       - terraform_plan
       - persist_to_workspace:
