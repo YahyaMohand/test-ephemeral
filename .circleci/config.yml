@@ -33,7 +33,7 @@ commands:
       - run:
           name: "Clone Ephemeral Repo"
           command: |
-            git clone https://github.com/YahyaMohand/ephemeral.git terraform/ephemeral
+            git clone https://github.com/YahyaMohand/ephemeral.git
 
   terraform_init:
     description: "Initialize Terraform"
