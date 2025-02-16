@@ -5,7 +5,177 @@ executors:
     docker:
       - image: cimg/python:3.9
 
+  terraform-executor:
+    docker:
+      - image: hashicorp/terraform:1.7
+
+  node-executor:
+    docker:
+      - image: node:20
+
+  aws-cli-executor:
+    docker:
+      - image: amazon/aws-cli:2.13.0
+
+commands:
+  setup_ephemeral_repo:
+    description: "Clone the ephemeral Terraform repository"
+    steps:
+      - run:
+          name: "Clone Ephemeral Repo"
+          command: |
+            git clone https://github.com/YahyaMohand/ephemeral.git terraform/ephemeral
+
+  terraform_init:
+    description: "Initialize Terraform"
+    steps:
+      - setup_ephemeral_repo
+      - run:
+          name: "Terraform Init"
+          command: |
+            cd terraform/ephemeral
+            terraform init \
+              -backend-config="key=ephemeral-environments/pr-<< pipeline.parameters.pr_number >>/terraform.tfstate"
+
+  terraform_plan:
+    description: "Run Terraform Plan"
+    steps:
+      - run:
+          name: "Terraform Plan"
+          command: |
+            cd terraform/ephemeral
+            terraform plan \
+              -var-file="terraform.ephemeral.tfvars" \
+              -var="pr_number=<< pipeline.parameters.pr_number >>" \
+              -var="is_backend=true" \
+              -out=tfplan
+
+  terraform_apply:
+    description: "Run Terraform Apply"
+    steps:
+      - run:
+          name: "Terraform Apply"
+          command: |
+            cd terraform/ephemeral
+            terraform apply -auto-approve tfplan
+
+  terraform_destroy:
+    description: "Run Terraform Destroy"
+    steps:
+      - run:
+          name: "Terraform Destroy"
+          command: |
+            cd terraform/ephemeral
+            terraform destroy -auto-approve \
+              -var-file="terraform.ephemeral.tfvars" \
+              -var="pr_number=<< pipeline.parameters.pr_number >>" \
+              -var="is_backend=true"
+
+  setup_db_tools:
+    description: "Install AWS CLI, SSM, and PostgreSQL Client"
+    steps:
+      - run:
+          name: "Install Required Tools"
+          command: |
+            apt update && apt install -y curl unzip postgresql-client
+
+            # Install AWS CLI v2
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            unzip awscliv2.zip
+            ./aws/install
+            aws --version
+
+            # Install AWS Session Manager Plugin
+            curl "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o "session-manager-plugin.deb"
+            apt install -y ./session-manager-plugin.deb
+            session-manager-plugin --version
+
+            # Verify PostgreSQL Client
+            psql --version
+            npm install -g prisma
+            prisma -v
+
+  manage_schema:
+    description: "Manage Database Schema"
+    parameters:
+      action:
+        type: enum
+        enum: ["create", "drop"]
+        default: "create"
+    steps:
+      - setup_db_tools
+      - run:
+          name: "Setup AWS SSM Tunnel and Manage Schema"
+          command: |
+            INSTANCE_ID=$(aws ec2 describe-instances --region me-south-1 \
+                      --filters "Name=tag:Name,Values=digitalzone-testing-bastion" \
+                      --query "Reservations[*].Instances[*].InstanceId" \
+                      --output text)
+
+            DB_HOST=$(aws rds describe-db-clusters --region me-south-1 \
+                      --db-cluster-identifier digitalzone-testing-db \
+                      --query 'DBClusters[*].Endpoint' --output text)
+
+            START_SESSION=$(aws ssm start-session --region me-south-1 --target $INSTANCE_ID \
+              --document-name AWS-StartPortForwardingSessionToRemoteHost \
+              --parameters "{\"portNumber\":[\"5432\"],\"localPortNumber\":[\"5432\"],\"host\":[\"$DB_HOST\"]}" \
+              --query 'SessionId' --output text) &
+
+            sleep 10
+            
+            SESSION_ID=$(aws ssm describe-sessions --region me-south-1 --state Active --filter "key=Target, value=$INSTANCE_ID" --query "Sessions[0].SessionId" --output text)
+            echo $SESSION_ID > /tmp/ssm_session_id
+
+            PR_NUMBER=$(basename << pipeline.parameters.pr_number >>)
+
+            if [ "<< parameters.action >>" = "create" ]; then
+              PGPASSWORD="$DB_PASSWORD" psql -h localhost -p 5432 -U $DB_USER -d $DB_NAME \
+                -c "CREATE SCHEMA IF NOT EXISTS pr_$PR_NUMBER;"
+            else
+              PGPASSWORD="$DB_PASSWORD" psql -h localhost -p 5432 -U $DB_USER -d $DB_NAME \
+                -c "DROP SCHEMA IF EXISTS pr_$PR_NUMBER CASCADE;"
+            fi
+
+      - run:
+          name: Terminate SSM Session
+          command: |
+            SESSION_ID=$(cat /tmp/ssm_session_id)
+            aws ssm terminate-session --session-id $SESSION_ID --region me-south-1
+
 jobs:
+  plan:
+    executor: terraform-executor
+    steps:
+      - checkout
+      - setup_ephemeral_repo
+      - run:
+          name: "Show Backend PR Branch"
+          command: echo "This ephemeral environment is running for PR: << pipeline.parameters.pr_branch >>"
+      - terraform_init
+      - terraform_plan
+      - persist_to_workspace:
+          root: terraform
+          paths:
+            - ephemeral/.terraform
+            - ephemeral/tfplan
+            - ephemeral/*.tf
+            - ephemeral/*.tfvars
+
+  apply:
+    executor: terraform-executor
+    steps:
+      - checkout
+      - attach_workspace:
+          at: terraform
+      - terraform_init
+      - terraform_apply
+
+  create_schema:
+    executor: node-executor
+    steps:
+      - manage_schema:
+          action: "create"
+
   test:
     executor: python-executor
     steps:
@@ -14,8 +184,38 @@ jobs:
           name: Run main.py
           command: python main.py
 
+  cleanup_schema:
+    executor: aws-cli-executor
+    steps:
+      - manage_schema:
+          action: "drop"
+
+  cleanup:
+    executor: terraform-executor
+    steps:
+      - checkout
+      - attach_workspace:
+          at: terraform
+      - terraform_init
+      - terraform_destroy
+
 workflows:
   version: 2
   test-pipeline:
     jobs:
-      - test
+      - plan
+      - apply:
+          requires:
+            - plan
+      - create_schema:
+          requires:
+            - apply
+      - test:
+          requires:
+            - create_schema
+      - cleanup_schema:
+          requires:
+            - test
+      - cleanup:
+          requires:
+            - cleanup_schema
