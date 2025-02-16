@@ -230,12 +230,13 @@ jobs:
       - run:
           name: "Trigger Destroy Pipeline with Continuation"
           command: |
+            CONFIG=$(base64 -w 0 .circleci/remove-ephemeral.yml)
             curl -X POST "https://circleci.com/api/v2/pipeline/continue" \
               -H "Circle-Token: $CIRCLE_CONTINUATION_KEY" \
               -H "Content-Type: application/json" \
               -d '{
                     "continuation-key": "'"$CIRCLE_CONTINUATION_KEY"'",
-                    "configuration": "'"$(cat .circleci/remove-ephemeral.yml)"'"
+                    "configuration": "'"$CONFIG"'"
                   }'
 
 workflows:
