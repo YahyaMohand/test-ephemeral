@@ -172,12 +172,12 @@ jobs:
       - terraform_init
       - terraform_plan
       - persist_to_workspace:
-          root: ~/project/ephemeral
+          root: ~/project/ephemeral/terraform
           paths:
-            - terraform/ephemeral/.terraform
-            - terraform/ephemeral/tfplan
-            - terraform/ephemeral/*.tf
-            - terraform/ephemeral/*.tfvars
+            - ephemeral/.terraform
+            - ephemeral/tfplan
+            - ephemeral/*.tf
+            - ephemeral/*.tfvars
 
   hold_for_schema_creation:
     executor: terraform-executor
@@ -197,7 +197,7 @@ jobs:
     steps:
       - checkout
       - attach_workspace:
-          at: ~/project/ephemeral
+          at: ~/project/ephemeral/terraform
       - terraform_init
       - terraform_apply
 
@@ -236,10 +236,10 @@ workflows:
           type: approval
           requires:
             - plan
-      - create_schema:
-          requires:
-            - hold_for_schema_creation
-          context: aws-creds
+      # - create_schema:
+      #     requires:
+      #       - hold_for_schema_creation
+      #     context: aws-creds
       - apply:
           requires:
             - create_schema
