@@ -156,15 +156,19 @@ commands:
             aws ssm terminate-session --session-id $SESSION_ID --region me-south-1
 
 jobs:
+  test:
+    executor: python-executor
+    steps:
+      - checkout
+      - run:
+          name: Run main.py
+          command: python main.py
+
   plan:
     executor: terraform-executor
     steps:
       - checkout
       - setup_ephemeral_repo
-      - run:
-          name: Show Backend PR Branch
-          command: |
-            echo "This ephemeral environment is running for the backend PR branch: << pipeline.parameters.pr_branch >>"
       - terraform_init
       - terraform_plan
       - persist_to_workspace:
@@ -175,14 +179,12 @@ jobs:
             - ephemeral/*.tf
             - ephemeral/*.tfvars
 
-  apply:
+  hold_for_schema_creation:
     executor: terraform-executor
     steps:
-      - checkout
-      - attach_workspace:
-          at: ephemeral/terraform
-      - terraform_init
-      - terraform_apply
+      - run:
+          name: "Wait for Approval to Create Schema and Apply"
+          command: echo "Click Approve to proceed."
 
   create_schema:
     executor: node-executor
@@ -190,13 +192,21 @@ jobs:
       - manage_schema:
           action: "create"
 
-  test:
-    executor: python-executor
+  apply:
+    executor: terraform-executor
     steps:
       - checkout
+      - attach_workspace:
+          at: terraform
+      - terraform_init
+      - terraform_apply
+
+  hold_for_cleanup:
+    executor: terraform-executor
+    steps:
       - run:
-          name: Run main.py
-          command: python main.py
+          name: "Wait for Approval to Cleanup Schema and Destroy Terraform"
+          command: echo "Click Approve to proceed."
 
   cleanup_schema:
     executor: aws-cli-executor
@@ -217,21 +227,30 @@ workflows:
   version: 2
   test-pipeline:
     jobs:
+      - test
       - plan:
+          requires:
+            - test
+          context: aws-creds
+      - hold_for_schema_creation:
+          type: approval
+          requires:
+            - plan
+      - create_schema:
+          requires:
+            - hold_for_schema_creation
           context: aws-creds
       - apply:
           requires:
-            - plan
+            - create_schema
           context: aws-creds
-      - create_schema:
+      - hold_for_cleanup:
+          type: approval
           requires:
             - apply
-      - test:
-          requires:
-            - create_schema
       - cleanup_schema:
           requires:
-            - test
+            - hold_for_cleanup
           context: aws-creds
       - cleanup:
           requires:
