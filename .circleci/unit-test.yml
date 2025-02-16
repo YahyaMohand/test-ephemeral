@@ -1,0 +1,10 @@
+docker:
+  - image: cimg/node:16.13.1
+steps:
+  - checkout
+  - run:
+      name: Install dependencies
+      command: npm install
+  - run:
+      name: Run unit tests
+      command: npm test

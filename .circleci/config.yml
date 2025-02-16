@@ -1,6 +1,7 @@
 version: 2.1
 
-jobs: !include jobs.yml
+unit-test: !include unit-test.yml
+
 
 parameters:
   pr_number:
