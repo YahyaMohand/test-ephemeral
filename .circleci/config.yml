@@ -210,7 +210,7 @@ jobs:
           command: echo "Click Approve to proceed."
 
   cleanup_schema:
-    executor: aws-cli-executor
+    executor: node-executor
     steps:
       - manage_schema:
           action: "drop"
