@@ -1,3 +1,0 @@
-unit-test: !include unit-test.yml
-e2e-test: !include e2e-test.yml
-ephemeral-env: !include ephemeral-env.yml
