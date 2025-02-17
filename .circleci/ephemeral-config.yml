@@ -115,86 +115,67 @@ commands:
             prisma -v
 
   manage_schema:
-    description: "Manage Database Schema"
-    parameters:
-      action:
-        type: enum
-        enum: ["create", "drop"]
-        default: "create"
-    steps:
-      - setup_db_tools
-      - run:
-          name: "Setup AWS SSM Tunnel and Manage Schema"
-          command: |
-            # Get instance and DB info
-            INSTANCE_ID=$(aws ec2 describe-instances --region me-south-1 \
-                      --filters "Name=tag:Name,Values=digitalzone-testing-bastion" \
-                      --query "Reservations[*].Instances[*].InstanceId" \
-                      --output text)
+      description: "Manage Database Schema and Run Prisma Migrations"
+      parameters:
+        action:
+          type: enum
+          enum: ["create", "drop"]
+          default: "create"
+      steps:
+        - checkout  # Add this to ensure code is available
+        - setup_db_tools
+        - run:
+            name: "Setup AWS SSM Tunnel and Manage Schema"
+            command: |
+              # Print working directory and list files for debugging
+              pwd
+              ls -la
+              
+              INSTANCE_ID=$(aws ec2 describe-instances --region me-south-1 \
+                        --filters "Name=tag:Name,Values=digitalzone-testing-bastion" \
+                        --query "Reservations[*].Instances[*].InstanceId" \
+                        --output text)
 
-            DB_HOST=$(aws rds describe-db-clusters --region me-south-1 \
-                      --db-cluster-identifier digitalzone-testing-db \
-                      --query 'DBClusters[*].Endpoint' --output text)
+              DB_HOST=$(aws rds describe-db-clusters --region me-south-1 \
+                        --db-cluster-identifier digitalzone-testing-db \
+                        --query 'DBClusters[*].Endpoint' --output text)
 
-            # Start SSM session and capture the Session ID
-            START_SESSION=$(aws ssm start-session --region me-south-1 --target $INSTANCE_ID \
-              --document-name AWS-StartPortForwardingSessionToRemoteHost \
-              --parameters "{\"portNumber\":[\"5432\"],\"localPortNumber\":[\"5432\"],\"host\":[\"$DB_HOST\"]}" \
-              --query 'SessionId' --output text) &
+              START_SESSION=$(aws ssm start-session --region me-south-1 --target $INSTANCE_ID \
+                --document-name AWS-StartPortForwardingSessionToRemoteHost \
+                --parameters "{\"portNumber\":[\"5432\"],\"localPortNumber\":[\"5432\"],\"host\":[\"$DB_HOST\"]}" \
+                --query 'SessionId' --output text) &
 
-            # Wait for tunnel to establish
-            sleep 10
-            
-            SESSION_ID=$(aws ssm describe-sessions --region me-south-1 --state Active --filter "key=Target, value=$INSTANCE_ID" --query "Sessions[0].SessionId" --output text)
-            echo $SESSION_ID > /tmp/ssm_session_id
+              sleep 10
+              
+              SESSION_ID=$(aws ssm describe-sessions --region me-south-1 --state Active --filter "key=Target, value=$INSTANCE_ID" --query "Sessions[0].SessionId" --output text)
+              echo $SESSION_ID > /tmp/ssm_session_id
 
-            # Extract PR number
-            PR_NUMBER=$(basename << pipeline.parameters.pr_number >>)
+              PR_NUMBER=$(basename << pipeline.parameters.pr_number >>)
 
-            if [ "<< parameters.action >>" = "create" ]; then
-              PGPASSWORD="$DB_PASSWORD" psql -h localhost -p 5432 -U $DB_USER -d $DB_NAME \
-                -c "CREATE SCHEMA IF NOT EXISTS pr_$PR_NUMBER;"
+              if [ "<< parameters.action >>" = "create" ]; then
+                # Create schema
+                PGPASSWORD="$DB_PASSWORD" psql -h localhost -p 5432 -U $DB_USER -d $DB_NAME \
+                  -c "CREATE SCHEMA IF NOT EXISTS pr_$PR_NUMBER;"
+                
+                # Set DATABASE_URL environment variable for Prisma
+                export DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@localhost:5432/$DB_NAME?schema=pr_$PR_NUMBER"
+                
+                # Run Prisma migrations with explicit schema path
+                echo "Running Prisma migrations..."
+                prisma migrate deploy --schema="./prisma/schema.prisma"
+                
+              else
+                # Drop schema (this will automatically remove all tables)
+                PGPASSWORD="$DB_PASSWORD" psql -h localhost -p 5432 -U $DB_USER -d $DB_NAME \
+                  -c "DROP SCHEMA IF EXISTS pr_$PR_NUMBER CASCADE;"
+              fi
 
-              # Grant all privileges on the new schema to the same roles as the public schema
-              PGPASSWORD="$DB_PASSWORD" psql -h localhost -p 5432 -U $DB_USER -d $DB_NAME \
-                -c "GRANT ALL ON SCHEMA pr_$PR_NUMBER TO PUBLIC;"
+        - run:
+            name: Terminate SSM Session
+            command: |
+              SESSION_ID=$(cat /tmp/ssm_session_id)
+              AWS_PAGER="" aws ssm terminate-session --session-id $SESSION_ID --region me-south-1
 
-              # Copy all tables from public schema to the new schema
-              PGPASSWORD="$DB_PASSWORD" psql -h localhost -p 5432 -U $DB_USER -d $DB_NAME \
-                -c "SELECT 'CREATE TABLE pr_$PR_NUMBER.' || tablename || ' AS TABLE public.' || tablename || ';' \
-                    FROM pg_tables WHERE schemaname = 'public';" \
-                | PGPASSWORD="$DB_PASSWORD" psql -h localhost -p 5432 -U $DB_USER -d $DB_NAME
-
-              # # Run Prisma Migrations
-              # export DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@localhost:5432/$DB_NAME?schema=pr_$PR_NUMBER"
-              # prisma migrate deploy
-
-              # # Seed the database
-              # prisma db seed
-
-            else
-              PGPASSWORD="$DB_PASSWORD" psql -h localhost -p 5432 -U $DB_USER -d $DB_NAME \
-                -c "DROP SCHEMA IF EXISTS pr_$PR_NUMBER CASCADE;"
-            fi
-
-      - run:
-          name: Terminate SSM Session
-          command: |
-            SESSION_ID=$(cat /tmp/ssm_session_id)
-            aws ssm terminate-session --session-id $SESSION_ID --region me-south-1
-
-      - run:
-          name: Terminate SSM Session
-          command: |
-            SESSION_ID=$(cat /tmp/ssm_session_id)
-            AWS_PAGER="" aws ssm terminate-session --session-id $SESSION_ID --region me-south-1
-
-
-      - run:
-          name: Terminate SSM Session
-          command: |
-            SESSION_ID=$(cat /tmp/ssm_session_id)
-            AWS_PAGER="" aws ssm terminate-session --session-id $SESSION_ID --region me-south-1
 
 jobs:
   plan:
