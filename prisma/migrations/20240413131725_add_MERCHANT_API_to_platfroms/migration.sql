@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "Platform" ADD VALUE 'MERCHANT_API';

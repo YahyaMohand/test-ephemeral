@@ -150,6 +150,12 @@ commands:
             if [ "<< parameters.action >>" = "create" ]; then
               PGPASSWORD="$DB_PASSWORD" psql -h localhost -p 5432 -U $DB_USER -d $DB_NAME \
                 -c "CREATE SCHEMA IF NOT EXISTS pr_$PR_NUMBER;"
+            export DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@localhost:5432/$DB_NAME?schema=pr_$PR_NUMBER"
+              
+              # Run Prisma migrations
+              echo "Running Prisma migrations..."
+              prisma migrate deploy
+              
             else
               PGPASSWORD="$DB_PASSWORD" psql -h localhost -p 5432 -U $DB_USER -d $DB_NAME \
                 -c "DROP SCHEMA IF EXISTS pr_$PR_NUMBER CASCADE;"

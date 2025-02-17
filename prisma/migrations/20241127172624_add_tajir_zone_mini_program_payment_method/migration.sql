@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "PaymentMethods" ADD VALUE 'TAJIR_ZONE_MINI_PROGRAM';

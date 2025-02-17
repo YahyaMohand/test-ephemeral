@@ -1,0 +1,1085 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-1.1.x", "debian-openssl-3.0.x", "linux-musl", "linux-musl-openssl-3.0.x", "linux-musl-arm64-openssl-3.0.x"]
+}
+
+datasource db {
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+enum Locale {
+  AR
+  EN
+  KU
+  TR
+  UR
+}
+
+model MainCategory {
+  id            Int                       @id @default(autoincrement())
+  slug          String                    @unique @default(cuid()) @map("slug")
+  enName        String                    @unique @map("en_name")
+  arName        String                    @unique @map("ar_name")
+  logo          String?
+  deleted       Boolean?                  @default(false)
+  subCategories SubCategory[]
+  isActive      Boolean                   @default(true) @map("is_active")
+  createdAt     DateTime                  @default(now()) @map("created_at")
+  updatedAt     DateTime                  @updatedAt @map("updated_at")
+  order         Int                       @default(0)
+  translations  MainCategoryTranslation[]
+
+  categoryCatalogs CatalogCategory[]
+
+  @@index([id])
+  @@index(isActive)
+  @@index(deleted)
+  @@index(slug)
+  @@map("main_categories")
+}
+
+model MainCategoryTranslation {
+  categoryId Int          @map("category_id")
+  locale     Locale // Language code, e.g., "en", "es", "fr"
+  name       String // Localized  name
+  category   MainCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([categoryId, locale]) // Composite primary key for brandId and locale
+  @@map("main_categories_translations")
+}
+
+model SubCategory {
+  id             Int          @id @default(autoincrement())
+  enName         String       @unique @map("en_name")
+  arName         String       @unique @map("ar_name")
+  deleted        Boolean?     @default(false)
+  mainCategoryId Int          @map("main_category_id")
+  mainCategory   MainCategory @relation(fields: [mainCategoryId], references: [id])
+  brands         Brand[]
+  isActive       Boolean      @default(true) @map("is_active")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  order          Int          @default(0)
+
+  translations SubCategoryTranslation[]
+
+  @@index([id, mainCategoryId])
+  @@index(isActive)
+  @@index(deleted)
+  @@map("sub_categories")
+}
+
+model SubCategoryTranslation {
+  categoryId Int         @map("category_id")
+  locale     Locale // Language code, e.g., "en", "es", "fr"
+  name       String // Localized  name
+  category   SubCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([categoryId, locale]) // Composite primary key for brandId and locale
+  @@map("sub_categories_translations")
+}
+
+model Brand {
+  id            Int         @id @default(autoincrement())
+  slug          String      @unique @default(cuid()) @map("slug")
+  enName        String      @map("en_name")
+  arName        String      @map("ar_name")
+  enDescription String?     @map("en_description")
+  arDescription String?     @map("ar_description")
+  logo          String
+  subCategory   SubCategory @relation(fields: [subCategoryId], references: [id])
+  subCategoryId Int         @map("sub_category_id")
+  products      Product[]
+  isGlobal      Boolean?    @default(false) @map("is_global")
+  order         Int         @default(0)
+  deleted       Boolean?    @default(false)
+  isActive      Boolean     @default(true) @map("is_active")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  oldLogo       String      @default("") @map("old_logo")
+  image         String      @default("") @map("image")
+
+  translations BrandTranslation[]
+
+  brandOffers     OfferBrands[]
+  brandCategories CatalogBrands[]
+
+  @@index([id, subCategoryId])
+  @@index(isActive)
+  @@index(deleted)
+  @@index(slug)
+  @@map("brands")
+}
+
+model BrandTranslation {
+  brandId     Int     @map("brand_id")
+  locale      Locale // Language code, e.g., "en", "es", "fr"
+  name        String // Localized  name
+  description String? // Localized description
+
+  brand Brand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@id([brandId, locale]) // Composite primary key for brandId and locale
+  @@map("brands_translations")
+}
+
+enum ProductType {
+  BUNDLE
+  VOUCHER
+  TOPUP
+}
+
+enum ProviderType {
+  ASIACELL
+  KOREK_BUNDLES
+  KOREK_VOUCHERS
+  MINTROUTE
+  DEFAULT
+  ALSAREE3
+  LIKECARD
+  NOJOOM_ALRABIAA
+  ALWATANI_TOPUP
+  EZ_PIN
+}
+
+model Product {
+  id                   Int           @id @default(autoincrement())
+  arName               String        @map("ar_name")
+  enName               String        @map("en_name")
+  brandId              Int
+  logo                 String?
+  brand                Brand         @relation(fields: [brandId], references: [id])
+  variants             Variant[]
+  type                 ProductType
+  provider             ProviderType?
+  arRedeemInstructions String?       @map("ar_redeem_instructions")
+  enRedeemInstructions String?       @map("en_redeem_instructions")
+  deleted              Boolean?      @default(false)
+  isActive             Boolean       @default(true) @map("is_active")
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
+  order                Int           @default(0)
+  requiredFields       Json?         @map("required_fields")
+  additionalFields     Json?         @map("additional_fields")
+  redeemCode           String?       @map("redeem_code")
+
+  translations ProductTranslation[]
+
+  @@index([id, brandId])
+  @@index(isActive)
+  @@index(deleted)
+  @@map("products")
+}
+
+model ProductTranslation {
+  productId   Int     @map("product_id")
+  locale      Locale // Language code, e.g., "en", "es", "fr"
+  name        String // Localized  name
+  description String? // Localized description
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([productId, locale]) // Composite primary key for brandId and locale
+  @@map("products_translations")
+}
+
+model Marketplace {
+  id                 Int                  @id @default(autoincrement())
+  name               String
+  marketplacePrices  MarketplaceVariant[]
+  deleted            Boolean?             @default(false)
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
+  Merchant           Merchant[]
+  platform           Platform             @default(MERCHANT_API) @map("platform")
+  PaymentRoutingRule PaymentRoutingRule[]
+
+  @@index([platform])
+  @@map("marketplaces")
+}
+
+enum CurrencyType {
+  IQD
+  USD
+}
+
+model Variant {
+  id                 Int                  @id @default(autoincrement())
+  cost               Float                @default(0)
+  currency           CurrencyType         @default(IQD)
+  image              String?
+  requiredFields     Json?                @map("required_fields")
+  price              Float                @default(0)
+  value              Json[] //TODO:: remove this after setting translation in future
+  providerMetaData   Json?                @default("{}") @map("provider_meta_data")
+  isActive           Boolean              @default(true) @map("is_active")
+  isReserved         Boolean              @default(false) @map("is_reserved")
+  order              Int                  @default(0)
+  productId          Int                  @map("product_id")
+  product            Product              @relation(fields: [productId], references: [id])
+  stock              Int                  @default(0)
+  vouchers           Voucher[]
+  orders             Order[]
+  marketplacePrices  MarketplaceVariant[]
+  VariantCostChange  VariantCostChange[]
+  deleted            Boolean?             @default(false)
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
+  bnplPercentage     Float?               @default(0) @map("bnpl_percentage")
+  bnplActive         Boolean?             @default(false) @map("bnpl_active")
+  PaymentRoutingRule PaymentRoutingRule[]
+
+  translations VariantTranslation[]
+  bnplchangehistories BNPLchangehistory[]
+
+  @@index([id, productId])
+  @@index(isActive)
+  @@index(deleted)
+  @@map("variants")
+}
+
+model BNPLchangehistory {
+  id                     Int       @id @unique @default(autoincrement()) @map("id")
+  bnplpercentage         Float     @map("bnpl_percentage")
+  active                 Boolean   @default(true) @map("active")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+  variantId              Int?      @map("variant_id")
+  adminId                String?   @map("admin_id")
+  variant                Variant?  @relation(fields: [variantId], references: [id])
+  admin                  Admin?    @relation(fields: [adminId], references: [id])
+
+  @@map("bnplchangehistory")
+}
+
+model VariantTranslation {
+  variantId Int    @map("variant_id")
+  locale    Locale // Language code, e.g., "en", "es", "fr"
+  name      String // Localized  name
+
+  variant Variant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@id([variantId, locale]) // Composite primary key for brandId and locale
+  @@map("variants_translations")
+}
+
+enum PricingType {
+  FIXED
+  CALCULATED
+}
+
+model MarketplaceVariant {
+  id            Int         @id @default(autoincrement())
+  commission    Float       @default(0)
+  addedCost     Float       @default(0) @map("added_cost")
+  pricingType   PricingType @default(FIXED) @map("pricing_type")
+  price         Float
+  active        Boolean     @default(true)
+  variantId     Int         @map("variant_id")
+  variant       Variant     @relation(fields: [variantId], references: [id])
+  marketplaceId Int         @map("marketplace_id")
+  marketplace   Marketplace @relation(fields: [marketplaceId], references: [id])
+  deleted       Boolean?    @default(false)
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  @@index([variantId, marketplaceId])
+  @@map("marketplace_variants")
+}
+
+enum OrderStatus {
+  PENDING
+  CANCELLED
+  FAILURE
+  SUCCESS
+  REFUNDING
+  REFUNDED
+}
+
+enum PaymentMethods {
+  WALLET
+  QI_PAYMENT_GATEWAY
+  MINI_PROGRAM
+  QI_SERVICES_PAYMENT_GATEWAY
+  TAJIR_ZONE_MINI_PROGRAM
+  BNPL
+  CHECKOUT
+}
+
+model TajirZoneMerchantsList {
+  id          Int      @id @default(autoincrement())
+  phoneNumber String   @map("phone_number")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([phoneNumber, active])
+  @@map("tajir_zone_merchant_whitelist")
+}
+
+model Order {
+  id                  Int                 @id @default(autoincrement())
+  consumerId          String?             @map("consumer_id")
+  consumer            User?               @relation(fields: [consumerId], references: [id], onDelete: Cascade)
+  merchantId          String?             @map("merchant_id")
+  merchant            Merchant?           @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  merchantUserId      String?             @map("merchant_user_id")
+  totalPrice          Float               @map("total_price")
+  value               Json[]
+  deliveryMethod      Json?               @default("{}") @map("delivery_method")
+  deliveryData        Json[]              @map("delivery_data")
+  variantId           Int                 @map("variant_id")
+  variant             Variant             @relation(fields: [variantId], references: [id])
+  fees                Float               @default(0)
+  status              OrderStatus         @default(PENDING)
+  transactionId       String?             @map("transaction_id")
+  transactionBody     Json?               @default("{}") @map("transaction_body")
+  transactionResponse Json?               @default("{}") @map("transaction_response")
+  webhookResponse     Json?               @default("{}") @map("webhook_response")
+  promoCodeId         Int?                @map("promo_code_id")
+  voucherId           Int?                @unique @map("voucher_id")
+  voucher             Voucher?            @relation(fields: [voucherId], references: [id])
+  promoCode           PromoCode?          @relation(fields: [promoCodeId], references: [id])
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
+  paymentMethod       PaymentMethods      @default(QI_PAYMENT_GATEWAY)
+  oldId               Int?                @map("old_id")
+  failureReason       String?             @default("") @map("failure_reason")
+  refundRequestId     String?             @default("") @map("refund_request_id")
+  refundedByAdmin     String?             @default("") @map("refunded_by_admin")
+  statusChanges       OrderStatusChange[] @relation("OrderStatusChanges")
+
+  @@index([id, variantId, consumerId])
+  @@index([merchantUserId])
+  @@index([merchantId, merchantUserId])
+  @@index([oldId])
+  @@index([createdAt])
+  @@index([consumerId])
+  @@index([consumerId, status])
+  @@map("orders")
+}
+
+model OrderStatusChange {
+  id             Int         @id @default(autoincrement())
+  orderId        Int         @map("order_id")
+  order          Order       @relation("OrderStatusChanges", fields: [orderId], references: [id])
+  previousStatus OrderStatus @map("previous_status")
+  newStatus      OrderStatus @map("new_status")
+  timestamp      DateTime    @default(now())
+
+  @@index([orderId])
+  @@map("order_status_change")
+}
+
+model TicketOrderStatusChange {
+  id             Int         @id @default(autoincrement())
+  ticketOrderId  Int         @map("ticket_order_id")
+  ticketOrder    TicketOrder @relation("TicketOrderStatusChange", fields: [ticketOrderId], references: [id])
+  previousStatus OrderStatus @map("previous_status")
+  newStatus      OrderStatus @map("new_status")
+  timestamp      DateTime    @default(now())
+
+  @@index([ticketOrderId])
+  @@map("ticket_order_status_change")
+}
+
+enum Platform {
+  CONSUMER_APP
+  TAJIR_ZONE   @map("QI_SERVICES_APP")
+  SUPER_QI_APP
+  MERCHANT_API
+  POS_APP
+}
+
+model User {
+  id                        String         @id
+  phone                     String
+  token                     String?
+  name                      String?
+  email                     String?
+  isBlocked                 Boolean        @default(false) @map("is_blocked")
+  deleted                   Boolean        @default(false)
+  createdAt                 DateTime       @default(now()) @map("created_at")
+  updatedAt                 DateTime       @updatedAt @map("updated_at")
+  orders                    Order[]
+  ticketHolders             TicketHolder[]
+  tickets                   Ticket[]
+  ticketOrders              TicketOrder[]
+  miniProgramId             String?        @map("mini_program_id")
+  platform                  Platform       @default(CONSUMER_APP) @map("platform")
+  bnplEligibleAccountNumber String?        @map("bnpl_eligible_account_number")
+  userCards                 UserCard[]
+
+  @@index([id])
+  @@index([miniProgramId])
+  @@index(isBlocked)
+  @@map("users")
+}
+
+model MerchantWhitelist {
+  id                Int      @id @default(autoincrement())
+  phoneNumber       String   @map("phone_number")
+  maxAllowedTickets Int      @map("max_allowed_tickets")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("merchant_white_list")
+}
+
+model Merchant {
+  id                   String                 @id
+  name                 String?
+  apiKey               String                 @unique @map("api_key")
+  privateKey           String?                @unique @map("private_key")
+  publicKey            String?                @unique @map("public_key")
+  balance              Float                  @default(0)
+  marketplaceId        Int?                   @map("marketplace_id")
+  marketplace          Marketplace?           @relation(fields: [marketplaceId], references: [id])
+  orders               Order[]
+  transactions         Transaction[]
+  admins               Admin[]
+  createdAt            DateTime               @default(now()) @map("created_at")
+  updatedAt            DateTime               @updatedAt @map("updated_at")
+  imageType            String                 @default("image") @map("image_type")
+  merchantTopupHistory MerchantTopupHistory[]
+
+  @@index([id])
+  @@map("merchants")
+}
+
+model MerchantTopupHistory {
+  id         Int       @id @default(autoincrement())
+  oldBalance BigInt    @map("old_balance")
+  amount     BigInt
+  Merchant   Merchant? @relation(fields: [merchantId], references: [id])
+  merchantId String?
+  note       String?   @default("")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  @@index([id, merchantId])
+  @@map("merchant_topup_history")
+}
+
+model Banners {
+  id              Int      @id @default(autoincrement())
+  image           String
+  bannerable_id   Int
+  bannerable_type String
+  active          Boolean
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("banners")
+}
+
+model Stadium {
+  id         Int      @id @default(autoincrement())
+  arName     String   @map("ar_name")
+  kuName     String   @map("ku_name")
+  chartKey   String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  events     Event[]
+  categories Json?    @default("[]") @map("categories")
+
+  @@index([id])
+  @@map("stadiums")
+}
+
+model Team {
+  id             Int      @id @default(autoincrement())
+  arName         String   @map("ar_name")
+  kuName         String   @map("ku_name")
+  logo           String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  matchesAsTeamA Match[]  @relation("teamA")
+  matchesAsTeamB Match[]  @relation("teamB")
+
+  @@index([id])
+  @@map("teams")
+}
+
+enum EventType {
+  SPORT
+  CONCERT
+}
+
+model Event {
+  id                Int           @id @default(autoincrement())
+  eventType         EventType     @default(SPORT) @map("event_type")
+  state             EventState    @default(ON_SALE)
+  arAddress         String?       @map("ar_address")
+  kuAddress         String?       @map("ku_address")
+  eventKey          String?       @map("event_key")
+  chartKey          String?       @map("chart_key")
+  dateAndTime       DateTime      @map("date_and_time")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+  stadiumId         Int           @map("stadium_id")
+  stadium           Stadium       @relation(fields: [stadiumId], references: [id])
+  categories        Json?         @default("[]") @map("categories")
+  publishedAt       DateTime?     @map("published_at")
+  tickets           Ticket[]
+  ticketOrders      TicketOrder[]
+  deleted           Boolean       @default(false)
+  concert           Concert?
+  Match             Match?
+  order             Int           @default(0)
+  maxAllowedTickets Int           @default(4) @map("max_allowed_tickets")
+
+  @@index([id, eventType, stadiumId])
+  @@map("events")
+}
+
+enum EventState {
+  ON_SALE
+  SOLD_OUT
+  CANCELLED
+}
+
+enum ConcertCategory {
+  CONCERT
+  WORKSHOP
+}
+
+model Concert {
+  id              Int             @id @default(autoincrement())
+  event           Event?          @relation(fields: [eventId], references: [id])
+  concertCategory ConcertCategory @default(CONCERT) @map("concert_category")
+  eventId         Int?            @unique @map("event_id")
+  imageLink       String?         @map("image_link")
+  arTitle         String?         @map("ar_title")
+  arSubtitle      String?         @map("ar_subtitle")
+  kuTitle         String?         @map("ku_title")
+  kuSubtitle      String?         @map("ku_subtitle")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  @@index([id, eventId])
+  @@index([id, eventId, concertCategory])
+  @@map("concerts")
+}
+
+model Match {
+  id         Int      @id @default(autoincrement())
+  event      Event?   @relation(fields: [eventId], references: [id])
+  eventId    Int?     @unique @map("event_id")
+  teamAId    Int      @map("team_a_id")
+  teamA      Team     @relation("teamA", fields: [teamAId], references: [id])
+  teamBId    Int      @map("team_b_id")
+  teamB      Team     @relation("teamB", fields: [teamBId], references: [id])
+  arTitle    String?  @map("ar_title")
+  arSubtitle String?  @map("ar_subtitle")
+  kuTitle    String?  @map("ku_title")
+  kuSubtitle String?  @map("ku_subtitle")
+  seasonId   Int?     @map("season_id")
+  season     Season?  @relation(fields: [seasonId], references: [id])
+  roundId    Int?     @map("round_id")
+  round      Round?   @relation(fields: [roundId], references: [id])
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([id, teamAId, teamBId, seasonId, roundId, eventId])
+  @@map("matches")
+}
+
+enum PromoCodeValueType {
+  RATE
+  FIXED
+}
+
+enum PromoCodeType {
+  BRAND
+  PRODUCT
+  VARIANT
+}
+
+model PromoCode {
+  id                    Int                @id @default(autoincrement())
+  code                  String             @unique
+  value                 Float
+  valueType             PromoCodeValueType @map("value_type")
+  maxUsage              Int                @default(1) @map("max_usage")
+  maxRedemptionsPerUser Int                @default(1) @map("max_redemption_per_user")
+  expiryDate            DateTime           @map("expiry_date")
+  consumerPhones        String[]           @map("consumer_phone")
+  maxRegisterDate       DateTime?          @map("min_register_date")
+  promoCodableType      PromoCodeType      @default(VARIANT) @map("promocodable_type")
+  promoCodableIds       Int[]              @map("promocodable_ids")
+  orders                Order[]
+  usage                 PromoCodeUsage?
+  isActive              Boolean            @default(true) @map("is_active")
+  neverActiveUsers      Boolean            @default(false) @map("never_active_users")
+  createdAt             DateTime           @default(now()) @map("created_at")
+  updatedAt             DateTime           @updatedAt @map("updated_at")
+  platform              Platform           @default(CONSUMER_APP)
+  maxDiscount           Int?               @map("max_discount")
+
+  @@index([id, code])
+  @@map("promo_codes")
+}
+
+model PromoCodeUsage {
+  id                  Int       @id @default(autoincrement())
+  promoCodeId         Int       @unique @map("promo_code_id")
+  promoCode           PromoCode @relation(fields: [promoCodeId], references: [id])
+  numberOfRedemptions Int       @default(0) @map("number_of_redemptions")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  @@map("promo_code_usages")
+}
+
+model Season {
+  id           Int       @id @default(autoincrement())
+  seasonNumber Int       @map("season_number")
+  seasonKey    String?
+  startDate    DateTime? @map("start_date")
+  endDate      DateTime? @map("end_date")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  rounds       Round[]
+  matches      Match[]
+
+  @@index([id])
+  @@map("seasons")
+}
+
+model Round {
+  id          Int      @id @default(autoincrement())
+  seasonId    Int      @map("season_id")
+  season      Season   @relation(fields: [seasonId], references: [id])
+  roundNumber Int      @map("round_number")
+  startDate   DateTime @map("start_date")
+  endDate     DateTime @map("end_date")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  matches     Match[]
+
+  @@index([id])
+  @@map("rounds")
+}
+
+enum VoucherStatus {
+  ACTIVE
+  ON_HOLD
+  USED
+  EXPIRED
+  RETAINED
+}
+
+model Voucher {
+  id               Int           @id @default(autoincrement())
+  code             String
+  serial           String        @unique
+  value            String
+  expiryDate       DateTime?     @map("expiry_date")
+  variantId        Int           @map("variant_id")
+  variant          Variant       @relation(fields: [variantId], references: [id])
+  orderId          Int?          @unique @map("order_id")
+  order            Order?
+  status           VoucherStatus @default(ACTIVE)
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+  oldId            Int?          @map("old_id")
+  encryptedVoucher String?       @map("encrypted_voucher")
+  encryptedAesKey  Bytes?        @map("encrypted_aes_key")
+  iv               String?
+  metadata         Json?
+  activationDate   DateTime?     @map("activation_date")
+  retentionEndDate DateTime?     @map("retention_end_date")
+
+  @@index([id, variantId, orderId])
+  @@index([variantId, status])
+  @@index([variantId])
+  @@index([oldId])
+  @@index([retentionEndDate])
+  @@index([activationDate, retentionEndDate])
+  @@map("vouchers")
+}
+
+model TicketHolder {
+  id        Int      @id @default(autoincrement())
+  name      String
+  phone     String
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([id])
+  @@map("ticket_holders")
+}
+
+enum TransactionType {
+  TOPUP
+  PAYMENT
+}
+
+model Transaction {
+  id         Int             @id @default(autoincrement())
+  type       TransactionType @map("type")
+  amount     Float
+  merchantId String?         @map("merchant_id")
+  merchant   Merchant?       @relation(fields: [merchantId], references: [id])
+  oldBalance Float           @map("old_balance")
+  newBalance Float           @map("new_balance")
+  createdAt  DateTime        @default(now()) @map("created_at")
+  updatedAt  DateTime        @updatedAt @map("updated_at")
+
+  @@index([id])
+  @@map("transactions")
+}
+
+enum MessageDeliveryMethod {
+  WHATSAPP
+  SMS
+}
+
+model Ticket {
+  id                    String                @id @default(uuid())
+  userId                String?               @map("user_id")
+  user                  User?                 @relation(fields: [userId], references: [id])
+  eventId               Int?                  @map("event_id")
+  event                 Event?                @relation(fields: [eventId], references: [id])
+  sector                String
+  price                 Float
+  gate                  String                @default("--")
+  used                  Boolean               @default(false)
+  holderName            String
+  holderPhone           String
+  ticketOrderId         Int?                  @map("ticket_order_id")
+  ticketOrder           TicketOrder?          @relation(fields: [ticketOrderId], references: [id])
+  createdAt             DateTime              @default(now()) @map("created_at")
+  updatedAt             DateTime              @updatedAt @map("updated_at")
+  isForOffline          Boolean               @default(false) @map("is_for_offline")
+  twilioMessageId       String?               @map("twilio_message_id")
+  twilioMessageStatus   String?               @default("") @map("twilio_message_status")
+  messageDeliveryMethod MessageDeliveryMethod @default(WHATSAPP) @map("message_delivery_method")
+  agentId               String?               @default("") @map("agentId")
+
+  @@index([id, twilioMessageId])
+  @@map("tickets")
+}
+
+model TicketOrder {
+  id                      Int                       @id @default(autoincrement())
+  orderNumber             String                    @default(uuid())
+  totalPrice              Float                     @map("total_price")
+  userId                  String                    @map("user_id")
+  user                    User                      @relation(fields: [userId], references: [id])
+  status                  OrderStatus               @default(PENDING)
+  transactionId           String?                   @map("transaction_id")
+  transactionBody         Json?                     @default("{}") @map("transaction_body")
+  transactionResponse     Json?                     @default("{}") @map("transaction_response")
+  webhookResponse         Json?                     @default("{}") @map("webhook_response")
+  holdToken               String?                   @map("hold_token")
+  createdAt               DateTime                  @default(now()) @map("created_at")
+  updatedAt               DateTime                  @updatedAt @map("updated_at")
+  tickets                 Ticket[]
+  event                   Event?                    @relation(fields: [eventId], references: [id])
+  eventId                 Int?                      @map("event_id")
+  paymentMethod           PaymentMethods            @default(QI_PAYMENT_GATEWAY) @map("payment_method")
+  TicketOrderStatusChange TicketOrderStatusChange[] @relation("TicketOrderStatusChange")
+  failureReason           String?                   @default("") @map("failure_reason")
+  refundRequestId         String?                   @default("") @map("refund_request_id")
+  refundedByAdmin         String?                   @default("") @map("refunded_by_admin")
+
+  @@index([id, orderNumber])
+  @@map("ticket_orders")
+}
+
+enum AdminRole {
+  SUPER_ADMIN     @map("super_admin")
+  ADMIN           @map("admin")
+  TZ_ADMIN        @map("tz_admin")
+  MERCHANT        @map("merchant")
+  SUPPLIER        @map("supplier")
+  EXTERNAL_ENTITY @map("external_entity")
+}
+
+model Admin {
+  id                String              @id
+  username          String              @unique
+  role              AdminRole
+  isActive          Boolean             @default(false)
+  deleted           Boolean             @default(false)
+  brandIds          Int[]               @map("brand_ids")
+  merchantId        String?             @map("merchant_id")
+  merchant          Merchant?           @relation(fields: [merchantId], references: [id])
+  VariantCostChange VariantCostChange[]
+  VariantBnplChange BNPLchangehistory[]
+  abilities         Json                @default("[]")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  @@index([id])
+  @@map("admins")
+}
+
+model RolePermissions {
+  role        AdminRole @id
+  permissions Json
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@map("role_permissions")
+}
+
+model Setting {
+  id               Int      @id @default(autoincrement())
+  hideGlobalBrands Boolean  @default(false) @map("hide_global_brands")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  exchangeRate     Int      @map("exchange_rate")
+
+  @@index([id])
+  @@map("settings")
+}
+
+model EventAnnouncement {
+  id        Int      @id @default(autoincrement())
+  title     String
+  subtitle  String?
+  eventId   Int?     @map("event_id")
+  active    Boolean  @default(false) @map("active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([id])
+  @@map("event_announcements")
+}
+
+model OtpTry {
+  id        Int      @id @default(autoincrement())
+  phone     String?
+  ip        String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([id])
+  @@map("otp_tries")
+}
+
+enum PagePlatform {
+  METABASE
+  RETOOL
+  DZ_DASHBOARD
+}
+
+model Pages {
+  id               Int          @id @default(autoincrement())
+  title            String
+  platform         PagePlatform @default(DZ_DASHBOARD)
+  pageId           String       @map("page_id")
+  providerMetadata Json?        @default("{}") @map("provider_metadata")
+  allowedRoles     AdminRole[]  @map("allowed_roles")
+  allowedAdmins    String[]     @map("allowed_admins")
+  visible          Boolean      @default(true)
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+
+  @@index([id, allowedRoles, allowedAdmins])
+  @@map("pages")
+}
+
+model Log {
+  id         Int      @id @default(autoincrement())
+  message    String
+  requestId  String   @map("request_id")
+  method     String
+  url        String
+  body       Json?
+  response   Json?
+  statusCode Int?     @map("status_code")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([id, requestId])
+  @@map("logs")
+}
+
+model Settlement {
+  id               Int      @id @default(autoincrement())
+  settlementNumber String?  @map("settlement_number")
+  amount           Float
+  madeBy           String?
+  comment          String?
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  image            String?
+  supplier         String?
+
+  @@index([id, supplier])
+  @@map("settlements")
+}
+
+model TwilioStatuses {
+  id         Int      @id @default(autoincrement())
+  status     String?
+  message_id String?
+  to         String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("twilio_statuses")
+}
+
+model VariantCostChange {
+  id           Int      @id @default(autoincrement())
+  cost         Int
+  dateOfChange DateTime @map("date_of_change")
+  adminId      String   @map("admin_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  version      Int      @default(1)
+  admin        Admin    @relation(fields: [adminId], references: [id])
+  variant      Variant? @relation(fields: [variantId], references: [id])
+  variantId    Int?     @map("variant_id")
+
+  @@unique([variantId, dateOfChange, version])
+  @@map("variant_cost_changes")
+}
+
+model ProviderBalance {
+  id        Int          @id @default(autoincrement())
+  provider  String
+  balance   Decimal
+  currency  CurrencyType
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  @@index([provider])
+  @@map("providers_balance")
+}
+
+model PaymentRoutingRule {
+  id            Int            @id @default(autoincrement())
+  paymentMethod PaymentMethods
+  marketplace   Marketplace    @relation(fields: [marketplaceId], references: [id])
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  isActive      Boolean        @default(true) @map("is_active")
+  variantId     Int
+  marketplaceId Int
+  Variant       Variant        @relation(fields: [variantId], references: [id])
+
+  @@unique([variantId, marketplaceId, paymentMethod])
+  @@map("payment_routing_rules")
+}
+
+model Content {
+  id   String @id @default(uuid())
+  slug String @unique
+
+  createdAt    DateTime             @default(now()) @map("created_at")
+  updatedAt    DateTime             @updatedAt @map("updated_at")
+  translations ContentTranslation[]
+  catalogs     Catalog[]
+
+  @@map("contents")
+}
+
+model ContentTranslation {
+  contentId String @map("content_id")
+  locale    Locale // Language code, e.g., "en", "es", "fr"
+  data      Json   @db.Json // Localized JSON data
+
+  content Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@id([contentId, locale]) // Ensure one translation per locale
+  @@map("contents_translations")
+}
+
+model Offer {
+  id           String             @id @default(uuid())
+  slug         String             @unique
+  image        String?
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+  translations OfferTranslation[]
+  offerBrands  OfferBrands[]
+
+  @@map("offers")
+}
+
+model OfferBrands {
+  offerId String @map("offer_id")
+  brandId Int    @map("brand_id")
+  brand   Brand  @relation(fields: [brandId], references: [id])
+  offer   Offer  @relation(fields: [offerId], references: [id])
+
+  @@id([offerId, brandId])
+  @@map("offers_brands")
+}
+
+model OfferTranslation {
+  offerId     String @map("offer_id")
+  locale      Locale // Language code, e.g., "en", "es", "fr"
+  title       String
+  description String
+
+  offer Offer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  @@id([offerId, locale]) // Ensure one translation per locale
+  @@map("offers_translations")
+}
+
+model Catalog {
+  id        String @id @default(uuid())
+  slug      String @unique
+  contentId String @map("content_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  content Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  catalogCategories CatalogCategory[]
+  catalogBrands   CatalogBrands[]
+
+  @@index(slug)
+  @@map("catalogs")
+}
+
+model CatalogCategory {
+  catalogId  String @map("catalog_id")
+  categoryId Int    @map("category_id")
+
+  catalog  Catalog      @relation(fields: [catalogId], references: [id])
+  category MainCategory @relation(fields: [categoryId], references: [id])
+
+  @@id([categoryId, catalogId])
+  @@map("catalog_categories")
+}
+
+model CatalogBrands {
+  catalogId String  @map("catalog_id")
+  brandId   Int     @map("brand_id")
+  brand     Brand   @relation(fields: [brandId], references: [id])
+  catalog   Catalog @relation(fields: [catalogId], references: [id])
+
+  @@id([catalogId, brandId])
+  @@map("catalogs_brands")
+}
+
+
+model UserCard {
+  id String @id @default(uuid())
+  userId                  String                    @map("user_id")
+  user                    User                      @relation(fields: [userId], references: [id])
+  maskedCardNumber        String                    @map("masked_card_number")
+  accountNumber           String                    @map("account_number")
+  active                  Boolean                   @default(true) @map("active")
+  bnplEligible            Boolean                   @default(false) @map("bnpl_eligible")
+  createdAt               DateTime                  @default(now()) @map("created_at")
+  updatedAt               DateTime                  @updatedAt @map("updated_at")
+
+  @@unique([userId, maskedCardNumber])
+  @@index([userId])
+  @@map("user_cards")
+}
