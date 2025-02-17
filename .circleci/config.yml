@@ -338,12 +338,12 @@ workflows:
       - e2e_test:
           requires:
             - prepare_workspace
-      - hold_for_ephemeral_pipeline:
+      - hold_for_build_ephemeral_env:
           type: approval
           requires:
             - unit_test
             - e2e_test
-      - continue_ephemeral_pipeline:
+      - trigger-ephemeral-pipeline:
           requires:
-            - hold_for_ephemeral_pipeline
+            - hold_for_build_ephemeral_env
 
