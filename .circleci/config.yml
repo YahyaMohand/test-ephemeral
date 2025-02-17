@@ -269,6 +269,9 @@ orbs:
   aws-ecs: circleci/aws-ecs@3.2
   aws-ecr: circleci/aws-ecr@9.1.0
   slack: circleci/slack@5.1.1
+  continuation: circleci/continuation@1
+  circleci-cli: circleci/circleci-cli@0.1.9
+
 
 executors:
   python-executor:
