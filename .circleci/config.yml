@@ -272,6 +272,9 @@ executors:
   python-executor:
     docker:
       - image: cimg/python:3.9
+  terraform-executor:
+    docker:
+      - image: hashicorp/terraform:1.7
 
 jobs:
   prepare_workspace:
@@ -312,7 +315,7 @@ jobs:
           command: echo "Click Approve to proceed."
 
   continue_ephemeral_pipeline:
-    executor: python-executor
+    executor: terraform-executor
     steps:
       - checkout
       - run: 
