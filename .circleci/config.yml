@@ -377,7 +377,7 @@ jobs:
           region: ${<< parameters.aws_region >>}
       - aws-ecr/build_image:
           repo: 'digitalzone-<< parameters.environment >>-be'
-          tag: $VERSION
+          tag: ${CIRCLE_SHA1}
           region: ${<< parameters.aws_region >>}
           account_id: $LOWERCASE_AWS_ACCOUNT_ID
           push_image: << parameters.push_image >>
@@ -388,7 +388,7 @@ jobs:
     parameters:
       environment:
         type: string
-        default: staging
+        default: ephemeral
       aws_access_key_id:
         type: env_var_name
         default: PROD_AWS_ACCESS_KEY_ID
@@ -425,33 +425,12 @@ jobs:
       - aws-ecs/update-service:
           cluster: 'digitalzone-<< parameters.environment >>'
           service-name: 'be'
-          container-image-name-updates: 'container=app,image-and-tag=${<< parameters.aws_account_id >>}.dkr.ecr.${<< parameters.aws_region >>}.amazonaws.com/digitalzone-<< parameters.environment >>-be:${VERSION}'
+          container-image-name-updates: 'container=app,image-and-tag=${<< parameters.aws_account_id >>}.dkr.ecr.${<< parameters.aws_region >>}.amazonaws.com/digitalzone-<< parameters.environment >>-be:${CIRCLE_SHA1}'
           family: 'digitalzone-<< parameters.environment >>-be'
           verify-revision-is-deployed: true
       - aws-ecr/tag_image:
           repo: 'digitalzone-<< parameters.environment >>-be'
-          source_tag: $VERSION
-      - run:
-            name: Set SLACK_PARAM_MENTIONS
-            command: |
-              SLACK_USER_ID=$(echo "$SLACK_USER_ID_MAP" | jq -r ".[\"${CIRCLE_USERNAME}\"]")
-              if [[ "$SLACK_USER_ID" == "null" || -z "$SLACK_USER_ID" ]]; then
-                SLACK_USER_ID="${CIRCLE_USERNAME}" # Fallback to username if no mapping is found
-              fi
-              echo "export SLACK_PARAM_MENTIONS=\"<@$SLACK_USER_ID>\"" >> $BASH_ENV
-      - run:
-            name: Debug SLACK_PARAM_MENTIONS
-            command: |
-              source $BASH_ENV
-              echo "Mentions: $SLACK_PARAM_MENTIONS"
-      - slack/notify:
-            template: basic_fail_1
-            channel: $SLACK_DEFAULT_CHANNEL
-            event: fail
-      - slack/notify:
-            template: basic_success_1
-            channel: $SLACK_DEFAULT_CHANNEL
-            event: pass        
+          source_tag: ${CIRCLE_SHA1} 
 
 workflows:
   version: 2
@@ -472,4 +451,24 @@ workflows:
       - continue_ephemeral_pipeline:
           requires:
             - hold_for_ephemeral_pipeline
+      - build_app:
+          name: build and push app (ephemeral)
+          aws_access_key_id: PROD_AWS_ACCESS_KEY_ID
+          aws_secret_access_key: PROD_AWS_SECRET_ACCESS_KEY
+          aws_region: PROD_AWS_REGION
+          aws_account_id: PROD_AWS_ACCOUNT_ID
+          push_image: true
+          requires:
+            - continue_ephemeral_pipeline
+          filters:
+            branches:
+              only: main
+      - deploy_to_ecs:
+          name: deploy app (ephemeral)
+          aws_access_key_id: PROD_AWS_ACCESS_KEY_ID
+          aws_secret_access_key: PROD_AWS_SECRET_ACCESS_KEY
+          aws_region: PROD_AWS_REGION
+          aws_account_id: PROD_AWS_ACCOUNT_ID
+          requires:
+            - build and push app (ephemeral)
 
