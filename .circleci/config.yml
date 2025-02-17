@@ -265,8 +265,10 @@ version: 2.1
 setup : true
 
 orbs:
-  continuation: circleci/continuation@1.1.0
-  circleci-cli: circleci/circleci-cli@0.1.9
+  aws-cli: circleci/aws-cli@3.1
+  aws-ecs: circleci/aws-ecs@3.2
+  aws-ecr: circleci/aws-ecr@9.1.0
+  slack: circleci/slack@5.1.1
 
 executors:
   python-executor:
@@ -276,13 +278,14 @@ executors:
 jobs:
   prepare_workspace:
     executor: python-executor
+    working_directory: ~/project
     steps:
       - checkout
       - run:
           name: Install Dependencies
           command: pip install -r requirements.txt
       - persist_to_workspace:
-          root: .
+          root: ~/project
           paths:
             - .
 
@@ -290,7 +293,7 @@ jobs:
     executor: python-executor
     steps:
       - attach_workspace:
-          at: .
+          at: ~/project
       - run:
           name: Run Unit Tests
           command: python main.py
@@ -319,7 +322,133 @@ jobs:
           name: "Verify .circleci Directory Contents"
           command: ls -la .circleci
       - continuation/continue:
-          configuration_path: ".circleci/ephemeral-config.yml"          
+          configuration_path: ".circleci/ephemeral-config.yml"
+
+  build_app:
+    executor: aws-ecr/default
+    resource_class: medium
+    working_directory: ~/project
+    parameters:
+      environment:
+        type: string
+        default: staging
+      aws_access_key_id:
+        type: env_var_name
+        default: PROD_AWS_ACCESS_KEY_ID
+      aws_secret_access_key:
+        type: env_var_name
+        default: PROD_AWS_SECRET_ACCESS_KEY
+      aws_region:
+        type: env_var_name
+        default: PROD_AWS_REGION
+      aws_account_id:
+        type: env_var_name
+        default: PROD_AWS_ACCOUNT_ID
+      push_image:
+        type: boolean
+        default: false
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ~/project
+          paths:
+            - ~/project/BASH.env
+      - run:
+          name: Source BASH Environment from other jobs
+          command: |
+            cat ~/project/BASH.env >> $BASH_ENV
+    
+      - run:
+          name: Set AWS Account ID to Lowercase
+          command: |
+            echo "Converting AWS Account ID to lowercase"
+            export LOWERCASE_AWS_ACCOUNT_ID=$(echo "$PROD_AWS_ACCOUNT_ID" | tr '[:upper:]' '[:lower:]')
+            echo "AWS Account ID in lowercase: $LOWERCASE_AWS_ACCOUNT_ID"
+            echo "export LOWERCASE_AWS_ACCOUNT_ID=$LOWERCASE_AWS_ACCOUNT_ID" >> $BASH_ENV
+      - aws-cli/setup:
+          aws-access-key-id: << parameters.aws_access_key_id >>
+          aws-secret-access-key: << parameters.aws_secret_access_key >>
+          aws-region: << parameters.aws_region >>
+      - aws-ecr/ecr_login:
+          account_id: $LOWERCASE_AWS_ACCOUNT_ID
+          region: ${<< parameters.aws_region >>}
+      - aws-ecr/build_image:
+          repo: 'digitalzone-<< parameters.environment >>-be'
+          tag: $VERSION
+          region: ${<< parameters.aws_region >>}
+          account_id: $LOWERCASE_AWS_ACCOUNT_ID
+          push_image: << parameters.push_image >>
+
+  deploy_to_ecs:
+    executor: aws-cli/default
+    resource_class: small
+    parameters:
+      environment:
+        type: string
+        default: staging
+      aws_access_key_id:
+        type: env_var_name
+        default: PROD_AWS_ACCESS_KEY_ID
+      aws_secret_access_key:
+        type: env_var_name
+        default: PROD_AWS_SECRET_ACCESS_KEY
+      aws_region:
+        type: env_var_name
+        default: PROD_AWS_REGION
+      aws_account_id:
+        type: env_var_name
+        default: PROD_AWS_ACCOUNT_ID
+    steps:
+      - attach_workspace:
+          at: ~/project
+          paths:
+            - ~/project/BASH.env
+      - run:
+          name: Source BASH Environment from other jobs
+          command: |
+            cat ~/project/BASH.env >> $BASH_ENV
+      - run:
+          name: Set AWS Account ID to Lowercase
+          command: |
+            echo "Converting AWS Account ID to lowercase"
+            export LOWERCASE_AWS_ACCOUNT_ID=$(echo "$PROD_AWS_ACCOUNT_ID" | tr '[:upper:]' '[:lower:]')
+            echo "AWS Account ID in lowercase: $LOWERCASE_AWS_ACCOUNT_ID"
+            echo "export LOWERCASE_AWS_ACCOUNT_ID=$LOWERCASE_AWS_ACCOUNT_ID" >> $BASH_ENV
+
+      - aws-cli/setup:
+          aws-access-key-id: << parameters.aws_access_key_id >>
+          aws-secret-access-key: << parameters.aws_secret_access_key >>
+          aws-region: << parameters.aws_region >>
+      - aws-ecs/update-service:
+          cluster: 'digitalzone-<< parameters.environment >>'
+          service-name: 'be'
+          container-image-name-updates: 'container=app,image-and-tag=${<< parameters.aws_account_id >>}.dkr.ecr.${<< parameters.aws_region >>}.amazonaws.com/digitalzone-<< parameters.environment >>-be:${VERSION}'
+          family: 'digitalzone-<< parameters.environment >>-be'
+          verify-revision-is-deployed: true
+      - aws-ecr/tag_image:
+          repo: 'digitalzone-<< parameters.environment >>-be'
+          source_tag: $VERSION
+      - run:
+            name: Set SLACK_PARAM_MENTIONS
+            command: |
+              SLACK_USER_ID=$(echo "$SLACK_USER_ID_MAP" | jq -r ".[\"${CIRCLE_USERNAME}\"]")
+              if [[ "$SLACK_USER_ID" == "null" || -z "$SLACK_USER_ID" ]]; then
+                SLACK_USER_ID="${CIRCLE_USERNAME}" # Fallback to username if no mapping is found
+              fi
+              echo "export SLACK_PARAM_MENTIONS=\"<@$SLACK_USER_ID>\"" >> $BASH_ENV
+      - run:
+            name: Debug SLACK_PARAM_MENTIONS
+            command: |
+              source $BASH_ENV
+              echo "Mentions: $SLACK_PARAM_MENTIONS"
+      - slack/notify:
+            template: basic_fail_1
+            channel: $SLACK_DEFAULT_CHANNEL
+            event: fail
+      - slack/notify:
+            template: basic_success_1
+            channel: $SLACK_DEFAULT_CHANNEL
+            event: pass        
 
 workflows:
   version: 2
