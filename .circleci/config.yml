@@ -304,38 +304,22 @@ jobs:
           name: Run E2E Tests
           command: python main.py
 
-
-  continue_ephemeral_pipeline:
-    executor: python-executor
-    steps:
-      - checkout
-      - continuation/continue:
-          configuration_path: ".circleci/ephemeral-config.yml"
-          parameters: |
-            {
-              "pr_number": "${CIRCLE_PULL_REQUEST##*/}",
-              "pr_branch": "${CIRCLE_BRANCH}"
-            }
-
-  hold_for_destroy_pipeline:
+  hold_for_ephemeral_pipeline:
     executor: python-executor
     steps:
       - run:
-          name: "Wait for Approval to Destroy Ephemeral Environment"
+          name: "Wait for Approval to build Ephemeral Environment"
           command: echo "Click Approve to proceed."
 
-  destroy_ephemeral_pipeline:
-    executor: python-executor
+  continue_ephemeral_pipeline:
+    executor: terraform-executor
     steps:
       - checkout
-      - continuation/continue:
-          configuration_path: ".circleci/ephemeral-config.yml"
-          parameters: |
-            {
-              "pr_number": "${CIRCLE_PULL_REQUEST##*/}",
-              "pr_branch": "${CIRCLE_BRANCH}"
-            }
-
+      - run:
+          name: Run Terraform Plan for Ephemeral Environment
+          command: |
+            chmod +x ./scripts/ephemeral.sh
+            ./scripts/ephemeral.sh plan
 workflows:
   version: 2
   backend-pipeline:
@@ -355,11 +339,4 @@ workflows:
       - continue_ephemeral_pipeline:
           requires:
             - hold_for_ephemeral_pipeline
-      - hold_for_destroy_pipeline:
-          type: approval
-          requires:
-            - continue_ephemeral_pipeline
-      - destroy_ephemeral_pipeline:
-          requires:
-            - hold_for_destroy_pipeline
 
