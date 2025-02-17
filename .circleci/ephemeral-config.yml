@@ -40,10 +40,11 @@ commands:
           name: "Ensure fresh ephemeral repo"
           command: |
             rm -rf ephemeral
-            git clone https://github.com/YahyaMohand/ephemeral.git
+            git clone https://YahyaMohCloud:${GITHUB_TOKEN_DZ}@github.com/DigitalZoneApp/platform-infra.git -b inf-200-ephemeral-environments-research-and-breaking-out-tasks ephemeral
       - run:
           name: "ls Ephemeral Repo"
           command: ls -la ephemeral/terraform
+
 
   terraform_init:
     description: "Initialize Terraform"
@@ -62,7 +63,7 @@ commands:
       - run:
           name: "Terraform Plan"
           command: |
-            cd ephemeral/terraform/ephemeral
+            cd ephemeral/terraform/stages/ephemeral
             terraform plan \
               -var-file="terraform.ephemeral.tfvars" \
               -var="pr_number=<< pipeline.parameters.pr_number >>" \
@@ -75,7 +76,7 @@ commands:
       - run:
           name: "Terraform Apply"
           command: |
-            cd ephemeral/terraform/ephemeral
+            cd ephemeral/terraform/stages/ephemeral
             terraform apply -auto-approve tfplan
 
   terraform_destroy:
@@ -84,7 +85,7 @@ commands:
       - run:
           name: "Terraform Destroy"
           command: |
-            cd ephemeral/terraform/ephemeral
+            cd ephemeral/terraform/stages/ephemeral
             terraform destroy -auto-approve \
               -var-file="terraform.ephemeral.tfvars" \
               -var="pr_number=<< pipeline.parameters.pr_number >>" \
