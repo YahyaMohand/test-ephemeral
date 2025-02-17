@@ -262,8 +262,6 @@
 
 version: 2.1
 
-setup : true
-
 orbs:
   continuation: circleci/continuation@1.1.0
   circleci-cli: circleci/circleci-cli@0.1.9
@@ -318,14 +316,25 @@ jobs:
     executor: terraform-executor
     steps:
       - checkout
-      - run: 
-          name: LS
-          command: ls -la
       - run:
-          name: Run Terraform Plan for Ephemeral Environment
+          name: Debug Directory Structure
+          command: |
+            pwd
+            echo "Current directory contents:"
+            ls -la
+            echo "CircleCI directory contents:"
+            ls -la .circleci/
+            echo "Scripts directory contents:"
+            ls -la .circleci/scripts/
+      - run:
+          name: Set Script Permissions
           command: |
             chmod +x .circleci/scripts/ephemeral.sh
-            .circleci/scripts/ephemeral.sh plan
+            ls -la .circleci/scripts/ephemeral.sh
+      - run:
+          name: Run Script with Full Path
+          command: |
+            $(pwd)/.circleci/scripts/ephemeral.sh plan
 
 workflows:
   version: 2
