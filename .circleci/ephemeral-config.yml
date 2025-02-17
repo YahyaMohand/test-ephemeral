@@ -175,21 +175,6 @@ jobs:
             - ephemeral/*.tf
             - ephemeral/*.tfvars
 
-  setup-job:
-    docker:
-      - image: cimg/base:stable
-    steps:
-      - run:
-          name: Retrieve and Store Continuation Key
-          command: |
-            mkdir -p ~/workspace
-            echo "$CIRCLE_CONTINUATION_KEY" > ~/workspace/continuation_key.txt
-      - persist_to_workspace:
-          root: ~/workspace
-          paths:
-            - continuation_key.txt
-
-
   hold_for_schema_creation:
     executor: terraform-executor
     steps:
@@ -235,31 +220,10 @@ jobs:
       - terraform_init
       - terraform_destroy
 
-  destroy_ephemeral_pipeline:
-    executor: python-executor
-    steps:
-      - checkout
-      - attach_workspace:
-          at: ~/workspace  # Make sure to attach the workspace
-      - run:
-          name: Debug Continuation Key Storage
-          command: |
-            ls -la ~/workspace  # Check if the key exists
-            cat ~/workspace/continuation_key.txt || echo "Continuation Key file not found!"
-      - run:
-          name: Read Continuation Key and Trigger Next Pipeline
-          command: |
-            export CIRCLE_CONTINUATION_KEY=$(cat ~/workspace/continuation_key.txt)
-            echo "Using Continuation Key: $CIRCLE_CONTINUATION_KEY"
-      - continuation/continue:
-          configuration_path: ".circleci/remove-ephemeral.yml"
-
-
 workflows:
   version: 2
   ephemeral-pipeline:
     jobs:
-      - setup-job
       - plan:
           context: aws-creds
       # - hold_for_schema_creation:
