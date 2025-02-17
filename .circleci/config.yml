@@ -310,7 +310,6 @@ jobs:
           command: echo "Click Approve to proceed."
 
   continue_ephemeral_pipeline:
-    # setup: true
     executor: python-executor
     steps:
       - checkout
@@ -328,7 +327,6 @@ jobs:
           command: echo "Click Approve to proceed."
 
   destroy_ephemeral_pipeline:
-    setup: true
     executor: python-executor
     steps:
       - checkout
