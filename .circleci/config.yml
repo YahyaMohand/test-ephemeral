@@ -445,7 +445,7 @@ workflows:
             - continue_ephemeral_pipeline
           filters:
             branches:
-              only: main
+              only: fix/add-ephe-env-in-steps
       - build_app:
           name: build and push app (ephemeral)
           aws_access_key_id: PROD_AWS_ACCESS_KEY_ID
