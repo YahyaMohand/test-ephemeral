@@ -336,13 +336,20 @@ jobs:
           command: |
             . $(pwd)/.circleci/scripts/ephemeral.sh plan
       - run:
-          name: Create schema
-          command: |
-            . $(pwd)/.circleci/scripts/ephemeral.sh create-schema
-      - run:
           name: Apply terraform
           command: |
             . $(pwd)/.circleci/scripts/ephemeral.sh apply
+  
+  create_schema:
+    executor: node-executor  # Uses a NodeJS image that includes `apt`, `curl`, `aws-cli`, and `psql`
+    steps:
+      - checkout
+      - run:
+          name: Set Script Permissions
+          command: chmod +x .circleci/scripts/ephemeral.sh
+      - run:
+          name: Create Database Schema
+          command: . $(pwd)/.circleci/scripts/ephemeral.sh create-schema
 
 workflows:
   version: 2
@@ -360,8 +367,12 @@ workflows:
           requires:
             - unit_test
             - e2e_test
-      - continue_ephemeral_pipeline:
+      - create_schema:
           requires:
             - hold_for_ephemeral_pipeline
+          context: aws-creds
+      - continue_ephemeral_pipeline:
+          requires:
+            - create_schema
           context: aws-creds
 
