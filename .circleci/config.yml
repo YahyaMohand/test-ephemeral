@@ -331,89 +331,49 @@ jobs:
     executor: aws-ecr/default
     resource_class: medium
     working_directory: ~/project
-    parameters:
-      environment:
-        type: string
-        default: staging
-      aws_access_key_id:
-        type: env_var_name
-        default: PROD_AWS_ACCESS_KEY_ID
-      aws_secret_access_key:
-        type: env_var_name
-        default: PROD_AWS_SECRET_ACCESS_KEY
-      aws_region:
-        type: env_var_name
-        default: PROD_AWS_REGION
-      aws_account_id:
-        type: env_var_name
-        default: PROD_AWS_ACCOUNT_ID
-      push_image:
-        type: boolean
-        default: false
     steps:
       - checkout
       - run:
           name: Set AWS Account ID to Lowercase
           command: |
             echo "Converting AWS Account ID to lowercase"
-            export LOWERCASE_AWS_ACCOUNT_ID=$(echo "$PROD_AWS_ACCOUNT_ID" | tr '[:upper:]' '[:lower:]')
+            export LOWERCASE_AWS_ACCOUNT_ID=$(echo "$AWS_ACCOUNT_ID" | tr '[:upper:]' '[:lower:]')
             echo "AWS Account ID in lowercase: $LOWERCASE_AWS_ACCOUNT_ID"
             echo "export LOWERCASE_AWS_ACCOUNT_ID=$LOWERCASE_AWS_ACCOUNT_ID" >> $BASH_ENV
-      - aws-cli/setup:
-          aws-access-key-id: << parameters.aws_access_key_id >>
-          aws-secret-access-key: << parameters.aws_secret_access_key >>
-          aws-region: << parameters.aws_region >>
+      - aws-cli/setup
       - aws-ecr/ecr_login:
           account_id: $LOWERCASE_AWS_ACCOUNT_ID
-          region: ${<< parameters.aws_region >>}
+          region: $AWS_REGION
       - aws-ecr/build_image:
-          repo: 'digitalzone-<< parameters.environment >>-be'
+          repo: "digitalzone-${CIRCLE_BRANCH}-be"
           tag: ${CIRCLE_SHA1}
-          region: ${<< parameters.aws_region >>}
+          region: $AWS_REGION
           account_id: $LOWERCASE_AWS_ACCOUNT_ID
-          push_image: << parameters.push_image >>
+          push_image: true
+
 
   deploy_to_ecs:
     executor: aws-cli/default
     resource_class: small
-    parameters:
-      environment:
-        type: string
-        default: ephemeral
-      aws_access_key_id:
-        type: env_var_name
-        default: PROD_AWS_ACCESS_KEY_ID
-      aws_secret_access_key:
-        type: env_var_name
-        default: PROD_AWS_SECRET_ACCESS_KEY
-      aws_region:
-        type: env_var_name
-        default: PROD_AWS_REGION
-      aws_account_id:
-        type: env_var_name
-        default: PROD_AWS_ACCOUNT_ID
     steps:
       - run:
           name: Set AWS Account ID to Lowercase
           command: |
             echo "Converting AWS Account ID to lowercase"
-            export LOWERCASE_AWS_ACCOUNT_ID=$(echo "$PROD_AWS_ACCOUNT_ID" | tr '[:upper:]' '[:lower:]')
+            export LOWERCASE_AWS_ACCOUNT_ID=$(echo "$AWS_ACCOUNT_ID" | tr '[:upper:]' '[:lower:]')
             echo "AWS Account ID in lowercase: $LOWERCASE_AWS_ACCOUNT_ID"
             echo "export LOWERCASE_AWS_ACCOUNT_ID=$LOWERCASE_AWS_ACCOUNT_ID" >> $BASH_ENV
-
-      - aws-cli/setup:
-          aws-access-key-id: << parameters.aws_access_key_id >>
-          aws-secret-access-key: << parameters.aws_secret_access_key >>
-          aws-region: << parameters.aws_region >>
+      - aws-cli/setup
       - aws-ecs/update-service:
-          cluster: 'digitalzone-<< parameters.environment >>'
-          service-name: 'be'
-          container-image-name-updates: 'container=app,image-and-tag=${<< parameters.aws_account_id >>}.dkr.ecr.${<< parameters.aws_region >>}.amazonaws.com/digitalzone-<< parameters.environment >>-be:${CIRCLE_SHA1}'
-          family: 'digitalzone-<< parameters.environment >>-be'
+          cluster: "digitalzone-${CIRCLE_BRANCH}"
+          service-name: "be"
+          container-image-name-updates: "container=app,image-and-tag=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/digitalzone-${CIRCLE_BRANCH}-be:${CIRCLE_SHA1}"
+          family: "digitalzone-${CIRCLE_BRANCH}-be"
           verify-revision-is-deployed: true
       - aws-ecr/tag_image:
-          repo: 'digitalzone-<< parameters.environment >>-be'
-          source_tag: ${CIRCLE_SHA1} 
+          repo: "digitalzone-${CIRCLE_BRANCH}-be"
+          source_tag: ${CIRCLE_SHA1}
+
 
 workflows:
   version: 2
@@ -443,22 +403,15 @@ workflows:
               only: fix/add-ephe-env-in-steps
       - build_app:
           name: build and push app (ephemeral)
-          aws_access_key_id: PROD_AWS_ACCESS_KEY_ID
-          aws_secret_access_key: PROD_AWS_SECRET_ACCESS_KEY
-          aws_region: PROD_AWS_REGION
-          aws_account_id: PROD_AWS_ACCOUNT_ID
-          push_image: true
+          context: aws-creds  # ✅ Use AWS context
           requires:
-            - hold_for_ephemeral_completion
+            - continue_ephemeral_pipeline
           filters:
             branches:
               only: fix/add-ephe-env-in-steps
       - deploy_to_ecs:
           name: deploy app (ephemeral)
-          aws_access_key_id: PROD_AWS_ACCESS_KEY_ID
-          aws_secret_access_key: PROD_AWS_SECRET_ACCESS_KEY
-          aws_region: PROD_AWS_REGION
-          aws_account_id: PROD_AWS_ACCOUNT_ID
+          context: aws-creds  # ✅ Use AWS context
           requires:
             - build and push app (ephemeral)
 
