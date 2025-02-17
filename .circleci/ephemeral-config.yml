@@ -177,13 +177,6 @@ jobs:
             - ephemeral/*.tf
             - ephemeral/*.tfvars
 
-  hold_for_schema_creation:
-    executor: terraform-executor
-    steps:
-      - run:
-          name: "Wait for Approval to Create Schema and Apply"
-          command: echo "Click Approve to proceed."
-
   create_schema:
     executor: node-executor
     steps:
@@ -199,13 +192,6 @@ jobs:
       - terraform_init
       - terraform_plan
       - terraform_apply
-
-  hold_for_cleanup:
-    executor: terraform-executor
-    steps:
-      - run:
-          name: "Wait for Approval to Cleanup Schema and Destroy Terraform"
-          command: echo "Click Approve to proceed."
 
   cleanup_schema:
     executor: node-executor
@@ -281,7 +267,7 @@ workflows:
             - plan
       - create_schema:
           requires:
-            - hold_for_schema_creation
+            - hold_for_schema_infrastructure_creation
           context: aws-creds
       - apply:
           requires:
