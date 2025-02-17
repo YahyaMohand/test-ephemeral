@@ -455,6 +455,9 @@ workflows:
           type: approval
           requires:
             - continue_ephemeral_pipeline
+          filters:
+            branches:
+              only: main
       - build_app:
           name: build and push app (ephemeral)
           aws_access_key_id: PROD_AWS_ACCESS_KEY_ID
