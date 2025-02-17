@@ -353,11 +353,6 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Source BASH Environment from other jobs
-          command: |
-            cat ~/project/BASH.env >> $BASH_ENV
-    
-      - run:
           name: Set AWS Account ID to Lowercase
           command: |
             echo "Converting AWS Account ID to lowercase"
