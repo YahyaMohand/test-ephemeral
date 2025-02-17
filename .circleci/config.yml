@@ -346,4 +346,5 @@ workflows:
       - continue_ephemeral_pipeline:
           requires:
             - hold_for_ephemeral_pipeline
+          context: aws-creds
 
