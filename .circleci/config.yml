@@ -310,14 +310,14 @@ jobs:
           name: Run E2E Tests
           command: python main.py
 
-  hold_for_ephemeral_pipeline:
-    executor: python-executor
-    steps:
-      - run:
-          name: "Wait for Approval to Deploy Ephemeral Environment"
-          command: echo "Click Approve to proceed."
+  # hold_for_build_ephemeral_env:
+  #   executor: python-executor
+  #   steps:
+  #     - run:
+  #         name: "Wait for Approval to Deploy Ephemeral Environment"
+  #         command: echo "Click Approve to proceed."
 
-  continue_ephemeral_pipeline:
+  trigger_ephemeral_pipeline:
     executor: python-executor
     steps:
       - checkout
@@ -343,7 +343,7 @@ workflows:
           requires:
             - unit_test
             - e2e_test
-      - trigger-ephemeral-pipeline:
+      - trigger_ephemeral_pipeline:
           requires:
             - hold_for_build_ephemeral_env
 
