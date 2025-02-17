@@ -30,7 +30,7 @@ terraform_init() {
 # Function to execute Terraform Plan
 terraform_plan() {
     echo "Running Terraform Plan..."
-    cd $TF_DIR
+    # cd $TF_DIR
     terraform plan -var-file="terraform.ephemeral.tfvars" -var="pr_number=$PR_NUMBER" -var="is_backend=true" -out=tfplan
 }
 
