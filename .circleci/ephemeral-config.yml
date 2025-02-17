@@ -226,25 +226,17 @@ workflows:
     jobs:
       - plan:
           context: aws-creds
-      # - hold_for_schema_creation:
-      #     type: approval
-      #     requires:
-      #       - plan
-      # - create_schema:
-      #     requires:
-      #       - hold_for_schema_creation
-      #     context: aws-creds
-      # - apply:
-      #     requires:
-      #       - create_schema
-      #     context: aws-creds
-      - hold_for_remove_ephemeral_pipeline:
+      - hold_for_schema_creation:
           type: approval
-          # requires:
-          #   - apply
-      - destroy_ephemeral_pipeline:
           requires:
-            - hold_for_remove_ephemeral_pipeline
+            - plan
+      - create_schema:
+          requires:
+            - hold_for_schema_creation
+          context: aws-creds
+      - apply:
+          requires:
+            - create_schema
           context: aws-creds
       # - hold_for_cleanup:
       #     type: approval
