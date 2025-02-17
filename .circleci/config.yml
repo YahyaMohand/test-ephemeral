@@ -304,24 +304,18 @@ jobs:
           name: Run E2E Tests
           command: python main.py
 
-  hold_for_ephemeral_pipeline:
-    executor: python-executor
-    steps:
-      - run:
-          name: "Wait for Approval to Deploy Ephemeral Environment"
-          command: echo "Click Approve to proceed."
 
   continue_ephemeral_pipeline:
     executor: python-executor
     steps:
       - checkout
-      - run:
-          name: "Verify .circleci Directory Contents"
-          command: ls -la .circleci
       - continuation/continue:
           configuration_path: ".circleci/ephemeral-config.yml"
-          parameters: '{"setup": false}'  # Add this line
-
+          parameters: |
+            {
+              "pr_number": "${CIRCLE_PULL_REQUEST##*/}",
+              "pr_branch": "${CIRCLE_BRANCH}"
+            }
 
   hold_for_destroy_pipeline:
     executor: python-executor
@@ -334,12 +328,13 @@ jobs:
     executor: python-executor
     steps:
       - checkout
-      - run:
-          name: "Verify .circleci Directory Contents"
-          command: ls -la .circleci
       - continuation/continue:
-          configuration_path: ".circleci/destroy-ephemeral.yml"
-          parameters: '{"setup": false}'
+          configuration_path: ".circleci/ephemeral-config.yml"
+          parameters: |
+            {
+              "pr_number": "${CIRCLE_PULL_REQUEST##*/}",
+              "pr_branch": "${CIRCLE_BRANCH}"
+            }
 
 workflows:
   version: 2
