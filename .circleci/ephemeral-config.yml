@@ -53,7 +53,7 @@ commands:
       - run:
           name: "Terraform Init"
           command: |
-            cd ephemeral/terraform/ephemeral
+            cd ephemeral/terraform/stages/ephemeral
             terraform init \
               -backend-config="key=ephemeral-environments/pr-<< pipeline.parameters.pr_number >>/terraform.tfstate"
 
