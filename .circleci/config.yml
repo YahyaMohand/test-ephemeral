@@ -460,9 +460,10 @@ workflows:
           push_image: true
           requires:
             - continue_ephemeral_pipeline
+            - ephemeral_pipeline_complete
           filters:
             branches:
-              only: main
+              only: fix/add-ephe-env-in-steps
       - deploy_to_ecs:
           name: deploy app (ephemeral)
           aws_access_key_id: PROD_AWS_ACCESS_KEY_ID

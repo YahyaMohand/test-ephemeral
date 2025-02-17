@@ -219,12 +219,23 @@ jobs:
           at: terraform
       - terraform_init
       - terraform_destroy
+  ephemeral_pipeline_complete:
+    docker:
+      - image: python-executor
+    steps:
+      - run:
+          name: "Ephemeral Pipeline Completion"
+          command: echo "Ephemeral pipeline completed successfully."
 
 workflows:
   version: 2
   ephemeral-pipeline:
     jobs:
       - plan:
+          context: aws-creds
+      - ephemeral_pipeline_complete:
+          requires:
+            - plan
           context: aws-creds
       - hold_for_schema_creation:
           type: approval
