@@ -310,36 +310,33 @@ jobs:
       - run:
           name: "Wait for Approval to Deploy Ephemeral Environment"
           command: echo "Click Approve to proceed."
-          
-  setup-job:
-    docker:
-      - image: cimg/base:stable
-    steps:
-      - run:
-          name: Retrieve and Store Continuation Key
-          command: |
-            mkdir -p ~/workspace
-            echo "$CIRCLE_CONTINUATION_KEY" > ~/workspace/continuation_key.txt
-      - persist_to_workspace:
-          root: ~/workspace
-          paths:
-            - continuation_key.txt
-
 
   continue_ephemeral_pipeline:
     executor: python-executor
     steps:
       - checkout
-      - attach_workspace:
-          at: ~/workspace
       - run:
-          name: Read and Use Continuation Key
-          command: |
-            export CIRCLE_CONTINUATION_KEY=$(cat ~/workspace/continuation_key.txt)
-            echo "Using Continuation Key: $CIRCLE_CONTINUATION_KEY"
+          name: "Verify .circleci Directory Contents"
+          command: ls -la .circleci
       - continuation/continue:
           configuration_path: ".circleci/ephemeral-config.yml"
 
+  hold_for_destroy_pipeline:
+    executor: python-executor
+    steps:
+      - run:
+          name: "Wait for Approval to Destroy Ephemeral Environment"
+          command: echo "Click Approve to proceed."
+
+  destroy_ephemeral_pipeline:
+    executor: python-executor
+    steps:
+      - checkout
+      - run:
+          name: "Verify .circleci Directory Contents"
+          command: ls -la .circleci
+      - continuation/continue:
+          configuration_path: ".circleci/destroy-ephemeral.yml"
 
 workflows:
   version: 2
@@ -352,7 +349,6 @@ workflows:
       - e2e_test:
           requires:
             - prepare_workspace
-      - setup-job
       - hold_for_ephemeral_pipeline:
           type: approval
           requires:
@@ -361,4 +357,11 @@ workflows:
       - continue_ephemeral_pipeline:
           requires:
             - hold_for_ephemeral_pipeline
+      - hold_for_destroy_pipeline:
+          type: approval
+          requires:
+            - continue_ephemeral_pipeline
+      - destroy_ephemeral_pipeline:
+          requires:
+            - hold_for_destroy_pipeline
 
