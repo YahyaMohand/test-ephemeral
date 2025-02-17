@@ -207,6 +207,30 @@ jobs:
           at: terraform
       - terraform_init
       - terraform_destroy
+      - run:
+          name: Install GitHub CLI
+          command: |
+            apk add --no-cache curl
+
+            curl -fsSL https://github.com/cli/cli/releases/download/v2.40.1/gh_2.40.1_linux_amd64.tar.gz -o gh.tar.gz
+            tar -xzf gh.tar.gz
+            mv gh_*_linux_amd64/bin/gh /usr/local/bin/gh
+
+            rm -rf gh.tar.gz gh_*_linux_amd64
+      - run:
+          name: Merge PR to Main
+          command: |
+            unset GITHUB_TOKEN
+
+            echo $GITHUB_TOKEN | gh auth login --with-token
+
+            PR_NUMBER=$(gh pr list --state open --head $CIRCLE_BRANCH --json number --jq '.[0].number')
+
+            if [ -n "$PR_NUMBER" ]; then
+              gh pr merge $PR_NUMBER --squash --delete-branch
+            else
+              echo "No open PR found for branch $CIRCLE_BRANCH"
+            fi
   
   build_app:
     executor: aws-ecr/default
