@@ -312,7 +312,7 @@ jobs:
           command: echo "Click Approve to proceed."
 
   continue_ephemeral_pipeline:
-    executor: terraform-executor
+    executor: python-executor
     steps:
       - checkout
       - run:
@@ -320,6 +320,7 @@ jobs:
           command: |
             chmod +x ./scripts/ephemeral.sh
             ./scripts/ephemeral.sh plan
+
 workflows:
   version: 2
   backend-pipeline:
