@@ -332,9 +332,17 @@ jobs:
             chmod +x .circleci/scripts/ephemeral.sh
             ls -la .circleci/scripts/ephemeral.sh
       - run:
-          name: Run Script with Full Path
+          name: Plan Terraform
           command: |
             . $(pwd)/.circleci/scripts/ephemeral.sh plan
+      - run:
+          name: Create schema
+          command: |
+            . $(pwd)/.circleci/scripts/ephemeral.sh create-schema
+      - run:
+          name: Apply terraform
+          command: |
+            . $(pwd)/.circleci/scripts/ephemeral.sh apply
 
 workflows:
   version: 2

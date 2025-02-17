@@ -34,10 +34,17 @@ terraform_plan() {
     terraform plan -var-file="terraform.ephemeral.tfvars" -var="pr_number=$PR_NUMBER" -var="is_backend=true" -out=tfplan
 }
 
+terraform_apply() {
+    echo "Apply Terraform..."
+    # cd $TF_DIR
+    terraform apply -auto-approve tfplan
+
+}
+
 # Function to destroy Terraform resources
 terraform_destroy() {
     echo "Destroying Terraform Resources..."
-    cd $TF_DIR
+    # cd $TF_DIR
     terraform destroy -auto-approve -var-file="terraform.ephemeral.tfvars" -var="pr_number=$PR_NUMBER" -var="is_backend=true"
 }
 
@@ -106,6 +113,9 @@ case "$1" in
     ;;
 "create-schema")
     manage_schema "create"
+    ;;
+"apply")
+    terraform_apply
     ;;
 "destroy")
     terraform_init
