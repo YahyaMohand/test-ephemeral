@@ -238,15 +238,15 @@ workflows:
           requires:
             - create_schema
           context: aws-creds
-      # - hold_for_cleanup:
-      #     type: approval
-      #     requires:
-      #       - apply
-      # - cleanup_schema:
-      #     requires:
-      #       - hold_for_cleanup
-      #     context: aws-creds
-      # - cleanup:
-      #     requires:
-      #       - cleanup_schema
-      #     context: aws-creds
+      - hold_for_cleanup:
+          type: approval
+          requires:
+            - apply
+      - cleanup_schema:
+          requires:
+            - hold_for_cleanup
+          context: aws-creds
+      - cleanup:
+          requires:
+            - cleanup_schema
+          context: aws-creds

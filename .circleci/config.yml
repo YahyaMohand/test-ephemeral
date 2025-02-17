@@ -262,6 +262,8 @@
 
 version: 2.1
 
+setup : true
+
 orbs:
   continuation: circleci/continuation@1.1.0
   circleci-cli: circleci/circleci-cli@0.1.9
@@ -270,12 +272,6 @@ executors:
   python-executor:
     docker:
       - image: cimg/python:3.9
-  terraform-executor:
-    docker:
-      - image: hashicorp/terraform:1.7
-  node-executor:
-    docker:
-      - image: node:20
 
 jobs:
   prepare_workspace:
@@ -312,47 +308,18 @@ jobs:
     executor: python-executor
     steps:
       - run:
-          name: "Wait for Approval to build Ephemeral Environment"
+          name: "Wait for Approval to Deploy Ephemeral Environment"
           command: echo "Click Approve to proceed."
 
   continue_ephemeral_pipeline:
-    executor: terraform-executor
+    executor: python-executor
     steps:
       - checkout
       - run:
-          name: Debug Directory Structure
-          command: |
-            pwd
-            echo "Current directory contents:"
-            ls -la
-            echo "CircleCI directory contents:"
-            ls -la .circleci/
-            echo "Scripts directory contents:"
-            ls -la .circleci/scripts/
-      - run:
-          name: Set Script Permissions
-          command: |
-            chmod +x .circleci/scripts/ephemeral.sh
-            ls -la .circleci/scripts/ephemeral.sh
-      - run:
-          name: Plan Terraform
-          command: |
-            . $(pwd)/.circleci/scripts/ephemeral.sh plan
-      - run:
-          name: Apply terraform
-          command: |
-            . $(pwd)/.circleci/scripts/ephemeral.sh apply
-  
-  create_schema:
-    executor: node-executor  # Uses a NodeJS image that includes `apt`, `curl`, `aws-cli`, and `psql`
-    steps:
-      - checkout
-      - run:
-          name: Set Script Permissions
-          command: chmod +x .circleci/scripts/ephemeral.sh
-      - run:
-          name: Create Database Schema
-          command: . $(pwd)/.circleci/scripts/ephemeral.sh create-schema
+          name: "Verify .circleci Directory Contents"
+          command: ls -la .circleci
+      - continuation/continue:
+          configuration_path: ".circleci/ephemeral-config.yml"          
 
 workflows:
   version: 2
@@ -370,12 +337,7 @@ workflows:
           requires:
             - unit_test
             - e2e_test
-      - create_schema:
-          requires:
-            - hold_for_ephemeral_pipeline
-          context: aws-creds
       - continue_ephemeral_pipeline:
           requires:
-            - create_schema
-          context: aws-creds
+            - hold_for_ephemeral_pipeline
 
