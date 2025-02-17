@@ -320,6 +320,8 @@ jobs:
           command: ls -la .circleci
       - continuation/continue:
           configuration_path: ".circleci/ephemeral-config.yml"
+          parameters: '{"setup": false}'  # Add this line
+
 
   hold_for_destroy_pipeline:
     executor: python-executor
@@ -337,6 +339,7 @@ jobs:
           command: ls -la .circleci
       - continuation/continue:
           configuration_path: ".circleci/destroy-ephemeral.yml"
+          parameters: '{"setup": false}'
 
 workflows:
   version: 2
