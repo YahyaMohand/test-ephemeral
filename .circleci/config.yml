@@ -352,10 +352,6 @@ jobs:
         default: false
     steps:
       - checkout
-      - attach_workspace:
-          at: ~/project
-          paths:
-            - ~/project/BASH.env
       - run:
           name: Source BASH Environment from other jobs
           command: |
@@ -402,14 +398,6 @@ jobs:
         type: env_var_name
         default: PROD_AWS_ACCOUNT_ID
     steps:
-      - attach_workspace:
-          at: ~/project
-          paths:
-            - ~/project/BASH.env
-      - run:
-          name: Source BASH Environment from other jobs
-          command: |
-            cat ~/project/BASH.env >> $BASH_ENV
       - run:
           name: Set AWS Account ID to Lowercase
           command: |
