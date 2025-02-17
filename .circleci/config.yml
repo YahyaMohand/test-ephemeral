@@ -405,7 +405,7 @@ workflows:
           name: build and push app (ephemeral)
           context: aws-creds  # ✅ Use AWS context
           requires:
-            - continue_ephemeral_pipeline
+            - hold_for_ephemeral_completion
           filters:
             branches:
               only: fix/add-ephe-env-in-steps
