@@ -334,7 +334,7 @@ jobs:
       - run:
           name: Run Script with Full Path
           command: |
-            $(pwd)/.circleci/scripts/ephemeral.sh plan
+            . $(pwd)/.circleci/scripts/ephemeral.sh plan
 
 workflows:
   version: 2
