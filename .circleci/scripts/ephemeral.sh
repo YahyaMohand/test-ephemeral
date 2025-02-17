@@ -62,15 +62,15 @@ manage_schema() {
     ACTION=$1
     setup_db_tools
     echo "Setting up AWS SSM Tunnel..."
-    
+
     INSTANCE_ID=$(aws ec2 describe-instances --region $AWS_REGION \
-                  --filters "Name=tag:Name,Values=$INSTANCE_NAME" \
-                  --query "Reservations[*].Instances[*].InstanceId" \
-                  --output text)
+        --filters "Name=tag:Name,Values=$INSTANCE_NAME" \
+        --query "Reservations[*].Instances[*].InstanceId" \
+        --output text)
 
     DB_HOST=$(aws rds describe-db-clusters --region $AWS_REGION \
-              --db-cluster-identifier $DB_CLUSTER_IDENTIFIER \
-              --query 'DBClusters[*].Endpoint' --output text)
+        --db-cluster-identifier $DB_CLUSTER_IDENTIFIER \
+        --query 'DBClusters[*].Endpoint' --output text)
 
     START_SESSION=$(aws ssm start-session --region $AWS_REGION --target $INSTANCE_ID \
         --document-name AWS-StartPortForwardingSessionToRemoteHost \
@@ -80,9 +80,9 @@ manage_schema() {
     sleep 10
 
     SESSION_ID=$(aws ssm describe-sessions --region $AWS_REGION --state Active \
-                  --filter "key=Target, value=$INSTANCE_ID" --query "Sessions[0].SessionId" --output text)
+        --filter "key=Target, value=$INSTANCE_ID" --query "Sessions[0].SessionId" --output text)
 
-    echo $SESSION_ID > /tmp/ssm_session_id
+    echo $SESSION_ID >/tmp/ssm_session_id
 
     if [ "$ACTION" == "create" ]; then
         echo "Creating schema pr_$PR_NUMBER..."
@@ -100,22 +100,22 @@ manage_schema() {
 
 # Main script execution
 case "$1" in
-    "plan")
-        terraform_init
-        terraform_plan
-        ;;
-    "create-schema")
-        manage_schema "create"
-        ;;
-    "destroy")
-        terraform_init
-        terraform_destroy
-        ;;
-    "drop-schema")
-        manage_schema "drop"
-        ;;
-    *)
-        echo "Usage: $0 {plan|create-schema|destroy|drop-schema}"
-        exit 1
-        ;;
+"plan")
+    terraform_init
+    terraform_plan
+    ;;
+"create-schema")
+    manage_schema "create"
+    ;;
+"destroy")
+    terraform_init
+    terraform_destroy
+    ;;
+"drop-schema")
+    manage_schema "drop"
+    ;;
+*)
+    echo "Usage: $0 {plan|create-schema|destroy|drop-schema}"
+    exit 1
+    ;;
 esac
