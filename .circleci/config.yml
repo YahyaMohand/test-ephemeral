@@ -315,11 +315,14 @@ jobs:
     executor: python-executor
     steps:
       - checkout
+      - run: 
+          name: LS
+          command: ls -la
       - run:
           name: Run Terraform Plan for Ephemeral Environment
           command: |
-            chmod +x ./scripts/ephemeral.sh
-            ./scripts/ephemeral.sh plan
+            chmod +x .circleci/scripts/ephemeral.sh
+            .circleci/scripts/ephemeral.sh plan
 
 workflows:
   version: 2
