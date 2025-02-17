@@ -325,8 +325,7 @@ jobs:
           name: Run Terraform Plan for Ephemeral Environment
           command: |
             chmod +x .circleci/scripts/ephemeral.sh
-            sh .circleci/scripts/ephemeral.sh plan
-
+            
 workflows:
   version: 2
   backend-pipeline:
