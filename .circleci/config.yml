@@ -327,54 +327,6 @@ jobs:
       - continuation/continue:
           configuration_path: ".circleci/ephemeral-config.yml"
 
-  build_app:
-    executor: aws-ecr/default
-    resource_class: medium
-    working_directory: ~/project
-    steps:
-      - checkout
-      - run:
-          name: Set AWS Account ID to Lowercase
-          command: |
-            echo "Converting AWS Account ID to lowercase"
-            export LOWERCASE_AWS_ACCOUNT_ID=$(echo "$AWS_ACCOUNT_ID" | tr '[:upper:]' '[:lower:]')
-            echo "AWS Account ID in lowercase: $LOWERCASE_AWS_ACCOUNT_ID"
-            echo "export LOWERCASE_AWS_ACCOUNT_ID=$LOWERCASE_AWS_ACCOUNT_ID" >> $BASH_ENV
-      - aws-cli/setup
-      - aws-ecr/ecr_login:
-          account_id: $LOWERCASE_AWS_ACCOUNT_ID
-          region: $AWS_REGION
-      - aws-ecr/build_image:
-          repo: "digitalzone-${CIRCLE_BRANCH}-be"
-          tag: ${CIRCLE_SHA1}
-          region: $AWS_REGION
-          account_id: $LOWERCASE_AWS_ACCOUNT_ID
-          push_image: true
-
-
-  deploy_to_ecs:
-    executor: aws-cli/default
-    resource_class: small
-    steps:
-      - run:
-          name: Set AWS Account ID to Lowercase
-          command: |
-            echo "Converting AWS Account ID to lowercase"
-            export LOWERCASE_AWS_ACCOUNT_ID=$(echo "$AWS_ACCOUNT_ID" | tr '[:upper:]' '[:lower:]')
-            echo "AWS Account ID in lowercase: $LOWERCASE_AWS_ACCOUNT_ID"
-            echo "export LOWERCASE_AWS_ACCOUNT_ID=$LOWERCASE_AWS_ACCOUNT_ID" >> $BASH_ENV
-      - aws-cli/setup
-      - aws-ecs/update-service:
-          cluster: "digitalzone-${CIRCLE_BRANCH}"
-          service-name: "be"
-          container-image-name-updates: "container=app,image-and-tag=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/digitalzone-${CIRCLE_BRANCH}-be:${CIRCLE_SHA1}"
-          family: "digitalzone-${CIRCLE_BRANCH}-be"
-          verify-revision-is-deployed: true
-      - aws-ecr/tag_image:
-          repo: "digitalzone-${CIRCLE_BRANCH}-be"
-          source_tag: ${CIRCLE_SHA1}
-
-
 workflows:
   version: 2
   backend-pipeline:
@@ -394,24 +346,4 @@ workflows:
       - continue_ephemeral_pipeline:
           requires:
             - hold_for_ephemeral_pipeline
-      - hold_for_ephemeral_completion:  # ✅ New manual approval step
-          type: approval
-          requires:
-            - continue_ephemeral_pipeline
-          filters:
-            branches:
-              only: fix/add-ephe-env-in-steps
-      - build_app:
-          name: build and push app (ephemeral)
-          context: aws-creds  # ✅ Use AWS context
-          requires:
-            - hold_for_ephemeral_completion
-          filters:
-            branches:
-              only: fix/add-ephe-env-in-steps
-      - deploy_to_ecs:
-          name: deploy app (ephemeral)
-          context: aws-creds  # ✅ Use AWS context
-          requires:
-            - build and push app (ephemeral)
 
