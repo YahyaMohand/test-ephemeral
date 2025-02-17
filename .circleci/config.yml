@@ -451,6 +451,10 @@ workflows:
       - continue_ephemeral_pipeline:
           requires:
             - hold_for_ephemeral_pipeline
+      - hold_for_ephemeral_completion:  # ✅ New manual approval step
+          type: approval
+          requires:
+            - continue_ephemeral_pipeline
       - build_app:
           name: build and push app (ephemeral)
           aws_access_key_id: PROD_AWS_ACCESS_KEY_ID
@@ -459,8 +463,7 @@ workflows:
           aws_account_id: PROD_AWS_ACCOUNT_ID
           push_image: true
           requires:
-            - continue_ephemeral_pipeline
-            - ephemeral_pipeline_complete
+            - hold_for_ephemeral_completion
           filters:
             branches:
               only: fix/add-ephe-env-in-steps
