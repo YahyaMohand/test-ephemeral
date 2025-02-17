@@ -273,6 +273,9 @@ executors:
   terraform-executor:
     docker:
       - image: hashicorp/terraform:1.7
+  node-executor:
+    docker:
+      - image: node:20
 
 jobs:
   prepare_workspace:
