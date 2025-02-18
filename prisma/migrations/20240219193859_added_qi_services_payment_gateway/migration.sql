@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "PaymentMethods" ADD VALUE 'QI_SERVICES_PAYMENT_GATEWAY';
