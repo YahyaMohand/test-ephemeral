@@ -318,17 +318,17 @@ workflows:
           type: approval
           requires:
             - apply
-          filters:
-            branches:
-              only: fix/add-ephe-env-in-steps
+          # filters:
+          #   branches:
+          #     only: fix/add-ephe-env-in-steps
       - build_app:
           name: build and push app (ephemeral)
           context: aws-creds  
           requires:
             - hold_for_deploy_to_ecs
-          filters:
-            branches:
-              only: fix/add-ephe-env-in-steps
+          # filters:
+          #   branches:
+          #     only: fix/add-ephe-env-in-steps
       - deploy_to_ecs:
           name: deploy app (ephemeral)
           context: aws-creds
