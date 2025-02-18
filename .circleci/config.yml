@@ -323,6 +323,10 @@ jobs:
   build_app:
     executor: aws-ecr/default
     resource_class: medium
+    parameters:
+      environment:
+        type: string
+        default: staging
     working_directory: ~/project
     steps:
       - checkout
@@ -338,7 +342,7 @@ jobs:
           account_id: $LOWERCASE_AWS_ACCOUNT_ID
           region: $AWS_REGION
       - aws-ecr/build_image:
-          repo: "digitalzone-${CIRCLE_BRANCH}-be"
+          repo: "digitalzone-<< parameters.environment >>-be"
           tag: ${CIRCLE_SHA1}
           region: $AWS_REGION
           account_id: $LOWERCASE_AWS_ACCOUNT_ID
@@ -348,6 +352,10 @@ jobs:
   deploy_to_ecs:
     executor: aws-cli/default
     resource_class: small
+    parameters:
+      environment:
+        type: string
+        default: staging
     steps:
       - run:
           name: Set AWS Account ID to Lowercase
@@ -358,13 +366,13 @@ jobs:
             echo "export LOWERCASE_AWS_ACCOUNT_ID=$LOWERCASE_AWS_ACCOUNT_ID" >> $BASH_ENV
       - aws-cli/setup
       - aws-ecs/update-service:
-          cluster: "dz-eph-ephemeral-environment"
+          cluster: "digitalzone-<< parameters.environment >>-be"
           service-name: "be"
-          container-image-name-updates: "container=app,image-and-tag=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/digitalzone-${CIRCLE_BRANCH}-be:${CIRCLE_SHA1}"
-          family: "ephemeral-<< pipeline.parameters.pr_number >>-be"
+          container-image-name-updates: "container=app,image-and-tag=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/digitalzone-<< parameters.environment >>-be:${CIRCLE_SHA1}"
+          family: "digitalzone-<< parameters.environment >>-be"
           verify-revision-is-deployed: true
       - aws-ecr/tag_image:
-          repo: "ephemeral-<< pipeline.parameters.pr_number >>-be"
+          repo: "digitalzone-<< parameters.environment >>-be"
           source_tag: ${CIRCLE_SHA1}
 
 workflows:
