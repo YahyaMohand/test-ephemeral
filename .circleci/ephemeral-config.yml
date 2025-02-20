@@ -90,7 +90,8 @@ commands:
             terraform destroy -auto-approve \
               -var-file="terraform.ephemeral.tfvars" \
               -var="pr_number=<< pipeline.parameters.pr_number >>" \
-              -var="is_backend=true"
+              -var="is_backend=true" \
+              -lock=false
 
   setup_db_tools:
     description: "Install AWS CLI, SSM, and PostgreSQL Client"
@@ -186,16 +187,14 @@ jobs:
       - checkout
       - setup_ephemeral_repo
       - run:
-          name: Terraform Init (Ensure DynamoDB Table Exists)
+          name: Terraform Init (DynamoDb Only)
           command: |
             cd ephemeral/terraform/stages/ephemeral
             terraform init \
               -backend-config="key=ephemeral-environments/pr-<< pipeline.parameters.pr_number >>/terraform.tfstate" \
               -backend-config="dynamodb_table=dz-eph-pr-<< pipeline.parameters.pr_number >>-locks"
-
-
       - run:
-          name: Terraform Apply for DynamoDB Only
+          name: Create DynamoDB Table
           command: |
             cd ephemeral/terraform/stages/ephemeral
             terraform apply -var-file="terraform.ephemeral.tfvars" -var="pr_number=<< pipeline.parameters.pr_number >>" -target=aws_dynamodb_table.locks -auto-approve -lock=false
