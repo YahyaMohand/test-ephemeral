@@ -190,6 +190,8 @@ jobs:
             cd ephemeral/terraform/stages/ephemeral
             terraform init \
               -backend-config="key=ephemeral-environments/pr-<< pipeline.parameters.pr_number >>/terraform.tfstate"
+              -backend-config="dynamodb_table=dz-eph-pr-<< pipeline.parameters.pr_number >>-locks"
+
 
       - run:
           name: Terraform Apply for DynamoDB Only
