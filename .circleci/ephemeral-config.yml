@@ -55,7 +55,8 @@ commands:
           command: |
             cd ephemeral/terraform/stages/ephemeral
             terraform init \
-              -backend-config="key=ephemeral-environments/pr-<< pipeline.parameters.pr_number >>/terraform.tfstate"
+              -backend-config="key=ephemeral-environments/pr-<< pipeline.parameters.pr_number >>/terraform.tfstate" \
+              -backend-config="dynamodb_table=dz-eph-pr-<< pipeline.parameters.pr_number >>-locks"
 
   terraform_plan:
     description: "Run Terraform Plan"
@@ -198,7 +199,7 @@ jobs:
           command: |
             cd ephemeral/terraform/stages/ephemeral
             terraform apply -var-file="terraform.ephemeral.tfvars" -var="pr_number=<< pipeline.parameters.pr_number >>" -target=aws_dynamodb_table.locks -auto-approve -lock=false
-            
+
       - terraform_init
       - terraform_plan
       - persist_to_workspace:
