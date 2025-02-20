@@ -197,7 +197,7 @@ jobs:
           name: Terraform Apply for DynamoDB Only
           command: |
             cd ephemeral/terraform/stages/ephemeral
-            terraform apply -target=aws_dynamodb_table.locks -auto-approve
+            terraform apply -target=aws_dynamodb_table.locks -auto-approve -lock=false
       - terraform_init
       - terraform_plan
       - persist_to_workspace:
