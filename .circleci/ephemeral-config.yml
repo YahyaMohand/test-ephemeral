@@ -46,22 +46,23 @@ commands:
           command: ls -la ephemeral/terraform
 
   decrypt_env_and_upload:
-    description: "Decrypt .env.age and upload to AWS SSM Parameter Store"
+    description: "Decrypt .env.age and upload to AWS SSM Parameter Store (Terraform Executor Compatible)"
     steps:
       - run:
-          name: "Install age"
+          name: "Install age and AWS CLI"
           command: |
-            apt update && apt install -y curl
+            apk add --no-cache curl bash
             curl -LO https://github.com/FiloSottile/age/releases/download/v1.0.0/age-v1.0.0-linux-amd64.tar.gz
             tar -xvzf age-v1.0.0-linux-amd64.tar.gz
             mv age/age /usr/local/bin/
-      
+            apk add --no-cache aws-cli
+
       - run:
           name: "Decrypt .env.age"
           command: |
             echo "$AGE_SECRET_KEY" > /tmp/age-key.txt
             age -d -i /tmp/age-key.txt -o .env .env.age
-            cat .env  # Debugging - Remove this in production!
+            cat .env  # Debugging - Remove in production!
 
       - run:
           name: "Upload to AWS SSM"
