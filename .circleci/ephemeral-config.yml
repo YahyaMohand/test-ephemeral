@@ -49,35 +49,35 @@ commands:
     description: "Decrypt .env.age and upload to AWS SSM Parameter Store (Terraform Executor Compatible)"
     steps:
       - run:
-          name: "Install age and AWS CLI"
+          name: "Install age, yq"
           command: |
-            apk add --no-cache curl bash
+            apk add --no-cache curl bash jq yq
             curl -LO https://github.com/FiloSottile/age/releases/download/v1.0.0/age-v1.0.0-linux-amd64.tar.gz
             tar -xvzf age-v1.0.0-linux-amd64.tar.gz
             mv age/age /usr/local/bin/
-            apk add --no-cache aws-cli
-
       - run:
           name: "Decrypt .env.age"
           command: |
             echo "$AGE_SECRET_KEY" > /tmp/age-key.txt
-            age -d -i /tmp/age-key.txt -o .env .env.age
+            age -d -i /tmp/age-key.txt -o envs.yml envs.yml.age
+            cat envs.yml
       - run:
-          name: "Upload to AWS SSM Parameter Store"
+          name: "Upload YAML Variables to AWS SSM Paramter store"
           command: |
             export AWS_PAGER=""
-            while IFS='=' read -r key value || [ -n "$key" ]; do
-              key=$(echo "$key" | xargs)  # Trim spaces
-              value=$(echo "$value" | xargs)  # Trim spaces
-              if [[ -n "$key" && "$key" != "#"* ]]; then
-                echo "Uploading: $key=****"
-                aws ssm put-parameter \
-                  --name "/dz-eph/be/pr/<< pipeline.parameters.pr_number >>/envs/$key" \
-                  --value "$value" \
-                  --type "SecureString" \
-                  --overwrite
+
+            yq eval -j envs.yml | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
+              if [[ "$value" == "|" ]]; then
+                value=$(yq eval ".${key}" envs.yml)
               fi
-            done < .env
+
+              echo "Uploading: $key=****"
+              aws ssm put-parameter \
+                --name "/digitalzone/ephemeral/${CIRCLE_BRANCH}/$key" \
+                --value "$value" \
+                --type "SecureString" \
+                --overwrite
+            done
 
   terraform_init:
     description: "Initialize Terraform"
