@@ -73,7 +73,7 @@ commands:
 
               echo "Uploading: $key=****"
               aws ssm put-parameter \
-                --name "/digitalzone/ephemeral/${CIRCLE_BRANCH}/$key" \
+                --name "/dz-eph/be/<< pipeline.parameters.pr_number >>/envs/$key" \
                 --value "$value" \
                 --type "SecureString" \
                 --overwrite
