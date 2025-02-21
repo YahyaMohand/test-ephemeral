@@ -62,10 +62,8 @@ commands:
           command: |
             echo "$AGE_SECRET_KEY" > /tmp/age-key.txt
             age -d -i /tmp/age-key.txt -o .env .env.age
-            cat .env  # Debugging - Remove in production!
-
       - run:
-          name: "Upload to AWS SSM (Fixed)"
+          name: "Upload to AWS SSM Parameter Store"
           command: |
             export AWS_PAGER=""
             while IFS='=' read -r key value || [ -n "$key" ]; do
@@ -74,7 +72,7 @@ commands:
               if [[ -n "$key" && "$key" != "#"* ]]; then
                 echo "Uploading: $key=****"
                 aws ssm put-parameter \
-                  --name "/digitalzone/ephemeral/${CIRCLE_BRANCH}/$key" \
+                  --name "/dz-eph/be/pr-<< pipeline.parameters.pr_number >>/envs/$key" \
                   --value "$value" \
                   --type "SecureString" \
                   --overwrite
