@@ -72,7 +72,7 @@ commands:
               if [[ -n "$key" && "$key" != "#"* ]]; then
                 echo "Uploading: $key=****"
                 aws ssm put-parameter \
-                  --name "/dz-eph/be/pr-<< pipeline.parameters.pr_number >>/envs/$key" \
+                  --name "/dz-eph/be/pr/<< pipeline.parameters.pr_number >>/envs/$key" \
                   --value "$value" \
                   --type "SecureString" \
                   --overwrite
