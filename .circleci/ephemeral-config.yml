@@ -65,15 +65,20 @@ commands:
             cat .env  # Debugging - Remove in production!
 
       - run:
-          name: "Upload to AWS SSM"
+          name: "Upload to AWS SSM (Fixed)"
           command: |
             export AWS_PAGER=""
-            while IFS='=' read -r key value; do
-              aws ssm put-parameter \
-                --name "/digitalzone/ephemeral/${CIRCLE_BRANCH}/$key" \
-                --value "$value" \
-                --type "SecureString" \
-                --overwrite
+            while IFS='=' read -r key value || [ -n "$key" ]; do
+              key=$(echo "$key" | xargs)  # Trim spaces
+              value=$(echo "$value" | xargs)  # Trim spaces
+              if [[ -n "$key" && "$key" != "#"* ]]; then
+                echo "Uploading: $key=****"
+                aws ssm put-parameter \
+                  --name "/digitalzone/ephemeral/${CIRCLE_BRANCH}/$key" \
+                  --value "$value" \
+                  --type "SecureString" \
+                  --overwrite
+              fi
             done < .env
 
   terraform_init:
