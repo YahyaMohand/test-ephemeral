@@ -45,6 +45,35 @@ commands:
           name: "ls Ephemeral Repo"
           command: ls -la ephemeral/terraform
 
+  decrypt_env_and_upload:
+    description: "Decrypt .env.age and upload to AWS SSM Parameter Store"
+    steps:
+      - run:
+          name: "Install age"
+          command: |
+            apt update && apt install -y curl
+            curl -LO https://github.com/FiloSottile/age/releases/download/v1.0.0/age-v1.0.0-linux-amd64.tar.gz
+            tar -xvzf age-v1.0.0-linux-amd64.tar.gz
+            mv age/age /usr/local/bin/
+      
+      - run:
+          name: "Decrypt .env.age"
+          command: |
+            echo "$AGE_SECRET_KEY" > /tmp/age-key.txt
+            age -d -i /tmp/age-key.txt -o .env .env.age
+            cat .env  # Debugging - Remove this in production!
+
+      - run:
+          name: "Upload to AWS SSM"
+          command: |
+            export AWS_PAGER=""
+            while IFS='=' read -r key value; do
+              aws ssm put-parameter \
+                --name "/digitalzone/ephemeral/${CIRCLE_BRANCH}/$key" \
+                --value "$value" \
+                --type "SecureString" \
+                --overwrite
+            done < .env
 
   terraform_init:
     description: "Initialize Terraform"
@@ -221,6 +250,7 @@ jobs:
       - checkout
       - attach_workspace:
           at: ~/project/ephemeral
+      - decrypt_env_and_upload
       - terraform_init
       - terraform_plan
       - terraform_apply
