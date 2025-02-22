@@ -65,13 +65,12 @@ commands:
           name: "Upload YAML Variables to AWS SSM"
           command: |
             export AWS_PAGER=""
-            
-            # Convert YAML to JSON and iterate over keys
+
+            # Parse YAML and upload each key-value pair
             yq -o=json eval envs.yml | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
               key=$(echo "$key" | xargs)  # Trim spaces
-              value=$(echo "$value" | xargs)  # Trim spaces
 
-              # Handle multiline values (RSA_PRIVATE)
+              # Handle RSA keys or multiline values correctly
               if [[ "$value" == "|" ]]; then
                 value=$(yq eval ".${key}" envs.yml)
               fi
