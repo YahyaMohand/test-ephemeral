@@ -66,15 +66,16 @@ commands:
           command: |
             export AWS_PAGER=""
 
-            # Parse YAML and upload each key-value pair
-            yq -o=json eval envs.yml | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
-              key=$(echo "$key" | xargs)  # Trim spaces
+            # Convert YAML to JSON and iterate over keys
+            yq -o=json eval envs.yml | jq -r 'to_entries | .[] | @base64' | while read -r entry; do
+              key=$(echo "$entry" | base64 -d | jq -r '.key')
+              value=$(echo "$entry" | base64 -d | jq -r '.value')
 
-              # Handle RSA keys or multiline values correctly
-              if [[ "$value" == "|" ]]; then
-                value=$(yq eval ".${key}" envs.yml)
+              # Handle multiline RSA keys and other long values
+              if [[ "$value" == *"-----BEGIN "* ]]; then
+                value=$(yq eval ".${key} | @base64" envs.yml | base64 -d)
               fi
-              
+
               echo "Uploading: $key=****"
               aws ssm put-parameter \
                 --name "/dz-eph/be/<< pipeline.parameters.pr_number >>/envs/$key" \
