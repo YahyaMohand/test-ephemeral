@@ -1,32 +1,411 @@
+# version: 2.1
+
+# parameters:
+#   pr_number:
+#     type: string
+#     default: ${CIRCLE_PULL_REQUEST##*/}
+#   pr_branch:
+#     type: string
+#     default: ${CIRCLE_BRANCH}
+
+
+# executors:
+#   python-executor:
+#     docker:
+#       - image: cimg/python:3.9
+
+#   terraform-executor:
+#     docker:
+#       - image: hashicorp/terraform:1.7
+
+#   node-executor:
+#     docker:
+#       - image: node:20
+
+#   aws-cli-executor:
+#     docker:
+#       - image: amazon/aws-cli:2.13.0
+
+# commands:
+#   setup_ephemeral_repo:
+#     description: "Clone the ephemeral Terraform repository"
+#     steps:
+#       - run:
+#           name: "Ensure fresh ephemeral repo"
+#           command: |
+#             rm -rf ephemeral
+#             git clone https://github.com/YahyaMohand/ephemeral.git
+#       - run:
+#           name: "ls Ephemeral Repo"
+#           command: ls -la ephemeral/terraform
+
+#   terraform_init:
+#     description: "Initialize Terraform"
+#     steps:
+#       - setup_ephemeral_repo
+#       - run:
+#           name: "Terraform Init"
+#           command: |
+#             cd ephemeral/terraform/ephemeral
+#             terraform init \
+#               -backend-config="key=ephemeral-environments/pr-<< pipeline.parameters.pr_number >>/terraform.tfstate"
+
+#   terraform_plan:
+#     description: "Run Terraform Plan"
+#     steps:
+#       - run:
+#           name: "Terraform Plan"
+#           command: |
+#             cd ephemeral/terraform/ephemeral
+#             terraform plan \
+#               -var-file="terraform.ephemeral.tfvars" \
+#               -var="pr_number=<< pipeline.parameters.pr_number >>" \
+#               -var="is_backend=true" \
+#               -out=tfplan
+
+#   terraform_apply:
+#     description: "Run Terraform Apply"
+#     steps:
+#       - run:
+#           name: "Terraform Apply"
+#           command: |
+#             cd ephemeral/terraform/ephemeral
+#             terraform apply -auto-approve tfplan
+
+#   terraform_destroy:
+#     description: "Run Terraform Destroy"
+#     steps:
+#       - run:
+#           name: "Terraform Destroy"
+#           command: |
+#             cd ephemeral/terraform/ephemeral
+#             terraform destroy -auto-approve \
+#               -var-file="terraform.ephemeral.tfvars" \
+#               -var="pr_number=<< pipeline.parameters.pr_number >>" \
+#               -var="is_backend=true"
+
+#   setup_db_tools:
+#     description: "Install AWS CLI, SSM, and PostgreSQL Client"
+#     steps:
+#       - run:
+#           name: "Install Required Tools"
+#           command: |
+#             apt update && apt install -y curl unzip postgresql-client
+
+#             # Install AWS CLI v2
+#             curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+#             unzip awscliv2.zip
+#             ./aws/install
+#             aws --version
+
+#             # Install AWS Session Manager Plugin
+#             curl "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o "session-manager-plugin.deb"
+#             apt install -y ./session-manager-plugin.deb
+#             session-manager-plugin --version
+
+#             # Verify PostgreSQL Client
+#             psql --version
+#             npm install -g prisma
+#             prisma -v
+
+#   manage_schema:
+#     description: "Manage Database Schema"
+#     parameters:
+#       action:
+#         type: enum
+#         enum: ["create", "drop"]
+#         default: "create"
+#     steps:
+#       - setup_db_tools
+#       - run:
+#           name: "Setup AWS SSM Tunnel and Manage Schema"
+#           command: |
+#             INSTANCE_ID=$(aws ec2 describe-instances --region me-south-1 \
+#                       --filters "Name=tag:Name,Values=digitalzone-testing-bastion" \
+#                       --query "Reservations[*].Instances[*].InstanceId" \
+#                       --output text)
+
+#             DB_HOST=$(aws rds describe-db-clusters --region me-south-1 \
+#                       --db-cluster-identifier digitalzone-testing-db \
+#                       --query 'DBClusters[*].Endpoint' --output text)
+
+#             START_SESSION=$(aws ssm start-session --region me-south-1 --target $INSTANCE_ID \
+#               --document-name AWS-StartPortForwardingSessionToRemoteHost \
+#               --parameters "{\"portNumber\":[\"5432\"],\"localPortNumber\":[\"5432\"],\"host\":[\"$DB_HOST\"]}" \
+#               --query 'SessionId' --output text) &
+
+#             sleep 10
+            
+#             SESSION_ID=$(aws ssm describe-sessions --region me-south-1 --state Active --filter "key=Target, value=$INSTANCE_ID" --query "Sessions[0].SessionId" --output text)
+#             echo $SESSION_ID > /tmp/ssm_session_id
+
+#             PR_NUMBER=$(basename << pipeline.parameters.pr_number >>)
+
+#             if [ "<< parameters.action >>" = "create" ]; then
+#               PGPASSWORD="$DB_PASSWORD" psql -h localhost -p 5432 -U $DB_USER -d $DB_NAME \
+#                 -c "CREATE SCHEMA IF NOT EXISTS pr_$PR_NUMBER;"
+#             else
+#               PGPASSWORD="$DB_PASSWORD" psql -h localhost -p 5432 -U $DB_USER -d $DB_NAME \
+#                 -c "DROP SCHEMA IF EXISTS pr_$PR_NUMBER CASCADE;"
+#             fi
+
+#       - run:
+#           name: Terminate SSM Session
+#           command: |
+#             SESSION_ID=$(cat /tmp/ssm_session_id)
+#             AWS_PAGER="" aws ssm terminate-session --session-id $SESSION_ID --region me-south-1
+
+# jobs:
+#   test:
+#     executor: python-executor
+#     steps:
+#       - checkout
+#       - run:
+#           name: Run main.py
+#           command: python main.py
+
+#   plan:
+#     executor: terraform-executor
+#     steps:
+#       - checkout
+#       - setup_ephemeral_repo
+#       - terraform_init
+#       - terraform_plan
+#       - persist_to_workspace:
+#           root: ~/project/ephemeral/terraform
+#           paths:
+#             - ephemeral/.terraform
+#             - ephemeral/tfplan
+#             - ephemeral/*.tf
+#             - ephemeral/*.tfvars
+
+#   hold_for_schema_creation:
+#     executor: terraform-executor
+#     steps:
+#       - run:
+#           name: "Wait for Approval to Create Schema and Apply"
+#           command: echo "Click Approve to proceed."
+
+#   create_schema:
+#     executor: node-executor
+#     steps:
+#       - manage_schema:
+#           action: "create"
+
+#   apply:
+#     executor: terraform-executor
+#     steps:
+#       - checkout
+#       - attach_workspace:
+#           at: ~/project/ephemeral
+#       - terraform_init
+#       - terraform_plan
+#       - terraform_apply
+
+#   hold_for_cleanup:
+#     executor: terraform-executor
+#     steps:
+#       - run:
+#           name: "Wait for Approval to Cleanup Schema and Destroy Terraform"
+#           command: echo "Click Approve to proceed."
+
+#   cleanup_schema:
+#     executor: node-executor
+#     steps:
+#       - manage_schema:
+#           action: "drop"
+
+#   cleanup:
+#     executor: terraform-executor
+#     steps:
+#       - checkout
+#       - attach_workspace:
+#           at: terraform
+#       - terraform_init
+#       - terraform_destroy
+
+# workflows:
+#   version: 2
+#   test-pipeline:
+#     jobs:
+#       - test
+#       - plan:
+#           requires:
+#             - test
+#           context: aws-creds
+#       - hold_for_schema_creation:
+#           type: approval
+#           requires:
+#             - plan
+#       - create_schema:
+#           requires:
+#             - hold_for_schema_creation
+#           context: aws-creds
+#       - apply:
+#           requires:
+#             - create_schema
+#           context: aws-creds
+#       - hold_for_cleanup:
+#           type: approval
+#           requires:
+#             - apply
+#       - cleanup_schema:
+#           requires:
+#             - hold_for_cleanup
+#           context: aws-creds
+#       - cleanup:
+#           requires:
+#             - cleanup_schema
+#           context: aws-creds
+
+
+
 version: 2.1
 
-setup: true
+setup : true
 
 orbs:
+  aws-cli: circleci/aws-cli@3.1
+  aws-ecs: circleci/aws-ecs@3.2
+  aws-ecr: circleci/aws-ecr@9.1.0
+  slack: circleci/slack@5.1.1
   continuation: circleci/continuation@1
   circleci-cli: circleci/circleci-cli@0.1.9
 
+
+executors:
+  python-executor:
+    docker:
+      - image: cimg/python:3.9
+
 jobs:
-  setup:
-    executor: continuation/default
+  prepare_workspace:
+    executor: python-executor
+    working_directory: ~/project
     steps:
       - checkout
-      - circleci-cli/install
       - run:
-          name: Set Environment
-          command: |
-            chmod u+x .circleci/use_env.sh
-            ./.circleci/use_env.sh
-            source $BASH_ENV
-            echo "Using config: $CONFIG_PATH"
-            circleci config process "$CONFIG_PATH" > generated_config.yml
+          name: Install Dependencies
+          command: pip install -r requirements.txt
+      - persist_to_workspace:
+          root: ~/project
+          paths:
+            - .
+
+  unit_test:
+    executor: python-executor
+    steps:
+      - attach_workspace:
+          at: ~/project
       - run:
-          name: Debug - Print Selected Config
-          command: cat generated_config.yml
+          name: Run Unit Tests
+          command: python main.py
+
+  e2e_test:
+    executor: python-executor
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Run E2E Tests
+          command: python main.py
+
+  trigger_ephemeral_pipeline:
+    executor: python-executor
+    steps:
+      - checkout
+      - run:
+          name: "Verify .circleci Directory Contents"
+          command: ls -la .circleci
       - continuation/continue:
-          configuration_path: generated_config.yml
+          configuration_path: ".circleci/ephemeral-config.yml"
+  
+  build_app:
+    executor: aws-ecr/default
+    resource_class: medium
+    parameters:
+      environment:
+        type: string
+        default: staging
+    working_directory: ~/project
+    steps:
+      - checkout
+      - run:
+          name: Set AWS Account ID to Lowercase
+          command: |
+            echo "Converting AWS Account ID to lowercase"
+            export LOWERCASE_AWS_ACCOUNT_ID=$(echo "$AWS_ACCOUNT_ID" | tr '[:upper:]' '[:lower:]')
+            echo "AWS Account ID in lowercase: $LOWERCASE_AWS_ACCOUNT_ID"
+            echo "export LOWERCASE_AWS_ACCOUNT_ID=$LOWERCASE_AWS_ACCOUNT_ID" >> $BASH_ENV
+      - aws-cli/setup
+      - aws-ecr/ecr_login:
+          account_id: $LOWERCASE_AWS_ACCOUNT_ID
+          region: $AWS_REGION
+      - aws-ecr/build_image:
+          repo: "digitalzone-<< parameters.environment >>-be"
+          tag: ${CIRCLE_SHA1}
+          region: $AWS_REGION
+          account_id: $LOWERCASE_AWS_ACCOUNT_ID
+          push_image: true
+
+
+  deploy_to_ecs:
+    executor: aws-cli/default
+    resource_class: small
+    parameters:
+      environment:
+        type: string
+        default: staging
+    steps:
+      - run:
+          name: Set AWS Account ID to Lowercase
+          command: |
+            echo "Converting AWS Account ID to lowercase"
+            export LOWERCASE_AWS_ACCOUNT_ID=$(echo "$AWS_ACCOUNT_ID" | tr '[:upper:]' '[:lower:]')
+            echo "AWS Account ID in lowercase: $LOWERCASE_AWS_ACCOUNT_ID"
+            echo "export LOWERCASE_AWS_ACCOUNT_ID=$LOWERCASE_AWS_ACCOUNT_ID" >> $BASH_ENV
+      - aws-cli/setup
+      - aws-ecs/update-service:
+          cluster: "digitalzone-<< parameters.environment >>-be"
+          service-name: "be"
+          container-image-name-updates: "container=app,image-and-tag=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/digitalzone-<< parameters.environment >>-be:${CIRCLE_SHA1}"
+          family: "digitalzone-<< parameters.environment >>-be"
+          verify-revision-is-deployed: true
+      - aws-ecr/tag_image:
+          repo: "digitalzone-<< parameters.environment >>-be"
+          source_tag: ${CIRCLE_SHA1}
 
 workflows:
-  run-environment-selector:
+  version: 2
+  backend-pipeline:
     jobs:
-      - setup
+      - prepare_workspace
+      - unit_test:
+          requires:
+            - prepare_workspace
+      - e2e_test:
+          requires:
+            - prepare_workspace
+      - hold_for_build_ephemeral_env:
+          type: approval
+          requires:
+            - unit_test
+            - e2e_test
+      - trigger_ephemeral_pipeline:
+          requires:
+            - hold_for_build_ephemeral_env
+          filters:
+            branches:
+              ignore: main
+      - build_app:
+          name: build and push app (Production)
+          context: aws-creds
+          filters:
+            branches:
+              only: main
+      - deploy_to_ecs:
+          name: deploy app (Production)
+          context: aws-creds
+          requires:
+            - build and push app (Production)
+

@@ -1,0 +1,421 @@
+version: 2.1
+
+orbs:
+  aws-cli: circleci/aws-cli@3.1
+  aws-ecs: circleci/aws-ecs@3.2
+  aws-ecr: circleci/aws-ecr@9.1.0
+  slack: circleci/slack@5.1.1
+
+parameters:
+  pr_number:
+    type: string
+    default: ${CIRCLE_PULL_REQUEST##*/}
+  pr_branch:
+    type: string
+    default: ${CIRCLE_BRANCH}
+
+
+executors:
+  python-executor:
+    docker:
+      - image: cimg/python:3.9
+
+  terraform-executor:
+    docker:
+      - image: hashicorp/terraform:1.7
+
+  node-executor:
+    docker:
+      - image: node:20
+
+  aws-cli-executor:
+    docker:
+      - image: amazon/aws-cli:2.13.0
+
+commands:
+  setup_ephemeral_repo:
+    description: "Clone the ephemeral Terraform repository"
+    steps:
+      - run:
+          name: "Ensure fresh ephemeral repo"
+          command: |
+            rm -rf ephemeral
+            git clone https://YahyaMohCloud:${GITHUB_TOKEN_DZ}@github.com/DigitalZoneApp/platform-infra.git -b inf-200-ephemeral-environments-research-and-breaking-out-tasks ephemeral
+      - run:
+          name: "ls Ephemeral Repo"
+          command: ls -la ephemeral/terraform
+
+  decrypt_env_and_upload:
+    description: "Decrypt .env.age and upload to AWS SSM Parameter Store (Terraform Executor Compatible)"
+    steps:
+      - run:
+          name: "Install age, yq"
+          command: |
+            apk add --no-cache curl bash jq yq aws-cli
+            curl -LO https://github.com/FiloSottile/age/releases/download/v1.0.0/age-v1.0.0-linux-amd64.tar.gz
+            tar -xvzf age-v1.0.0-linux-amd64.tar.gz
+            mv age/age /usr/local/bin/
+      - run:
+          name: "Decrypt envs.yml.age (If Exists)"
+          command: |
+            if [ -f "envs.yml.age" ]; then
+              echo "$AGE_SECRET_KEY" > /tmp/age-key.txt
+              age -d -i /tmp/age-key.txt -o envs.yml envs.yml.age
+              echo "=== Decrypted envs.yml ==="
+              cat envs.yml
+            else
+              echo "envs.yml.age not found, skipping decryption step."
+            fi
+
+      - run:
+          name: "Upload YAML Variables to AWS SSM (If Exists)"
+          command: |
+            if [ ! -f "envs.yml" ]; then
+              echo "envs.yml not found, skipping upload step."
+              exit 0
+            fi
+
+            export AWS_PAGER=""
+            PR_NUMBER="<< pipeline.parameters.pr_number >>"
+            PR_SCHEMA="pr_${PR_NUMBER}"
+
+            # Convert YAML to JSON and iterate over keys
+            yq -o=json eval envs.yml | jq -r 'to_entries | .[] | @base64' | while read -r entry; do
+              key=$(echo "$entry" | base64 -d | jq -r '.key')
+              value=$(echo "$entry" | base64 -d | jq -r '.value')
+
+              # Modify DATABASE_URL to include the schema dynamically
+              if [[ "$key" == "DATABASE_URL" ]]; then
+                value="${value}?schema=${PR_SCHEMA}"
+              fi
+
+              # Handle multiline RSA keys and other long values
+              if [[ "$value" == *"-----BEGIN "* ]]; then
+                value=$(yq eval ".${key} | @base64" envs.yml | base64 -d)
+              fi
+
+              echo "Uploading: $key=****"
+              aws ssm put-parameter \
+                --name "/dz-eph/be/${PR_NUMBER}/envs/$key" \
+                --value "$value" \
+                --type "SecureString" \
+                --overwrite
+            done
+
+
+  terraform_init:
+    description: "Initialize Terraform"
+    steps:
+      - setup_ephemeral_repo
+      - run:
+          name: "Terraform Init"
+          command: |
+            cd ephemeral/terraform/stages/ephemeral
+            terraform init \
+              -backend-config="key=ephemeral-environments/pr-<< pipeline.parameters.pr_number >>/terraform.tfstate" \
+              -backend-config="dynamodb_table=dz-eph-pr-<< pipeline.parameters.pr_number >>-locks"
+
+  terraform_plan:
+    description: "Run Terraform Plan"
+    steps:
+      - run:
+          name: "Terraform Plan"
+          command: |
+            cd ephemeral/terraform/stages/ephemeral
+            terraform plan \
+              -var-file="terraform.ephemeral.tfvars" \
+              -var="pr_number=<< pipeline.parameters.pr_number >>" \
+              -var="is_backend=true" \
+              -out=tfplan
+
+  terraform_apply:
+    description: "Run Terraform Apply"
+    steps:
+      - run:
+          name: "Terraform Apply"
+          command: |
+            cd ephemeral/terraform/stages/ephemeral
+            terraform apply -auto-approve tfplan
+
+  terraform_destroy:
+    description: "Run Terraform Destroy"
+    steps:
+      - run:
+          name: "Terraform Destroy"
+          command: |
+            cd ephemeral/terraform/stages/ephemeral
+            terraform destroy -auto-approve \
+              -var-file="terraform.ephemeral.tfvars" \
+              -var="pr_number=<< pipeline.parameters.pr_number >>" \
+              -var="is_backend=true" \
+              -lock=false
+
+  setup_db_tools:
+    description: "Install AWS CLI, SSM, and PostgreSQL Client"
+    steps:
+      - run:
+          name: "Install Required Tools" 
+          command: |
+            apt update && apt install -y curl unzip postgresql-client
+
+            # Install AWS CLI v2
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            unzip awscliv2.zip
+            ./aws/install
+            aws --version
+
+            # Install AWS Session Manager Plugin
+            curl "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o "session-manager-plugin.deb"
+            apt install -y ./session-manager-plugin.deb
+            session-manager-plugin --version
+
+            # Verify PostgreSQL Client
+            psql --version
+            npm install -g prisma
+            prisma -v
+
+  manage_schema:
+      description: "Manage Database Schema and Run Prisma Migrations"
+      parameters:
+        action:
+          type: enum
+          enum: ["create", "drop"]
+          default: "create"
+      steps:
+        - checkout
+        - setup_db_tools
+        - run:
+            name: "Setup AWS SSM Tunnel and Manage Schema"
+            command: |
+              pwd
+              ls -la
+              
+              INSTANCE_ID=$(aws ec2 describe-instances --region me-south-1 \
+                        --filters "Name=tag:Name,Values=digitalzone-testing-bastion" \
+                        --query "Reservations[*].Instances[*].InstanceId" \
+                        --output text)
+
+              DB_HOST=$(aws rds describe-db-clusters --region me-south-1 \
+                        --db-cluster-identifier digitalzone-testing-db \
+                        --query 'DBClusters[*].Endpoint' --output text)
+
+              START_SESSION=$(aws ssm start-session --region me-south-1 --target $INSTANCE_ID \
+                --document-name AWS-StartPortForwardingSessionToRemoteHost \
+                --parameters "{\"portNumber\":[\"5432\"],\"localPortNumber\":[\"5432\"],\"host\":[\"$DB_HOST\"]}" \
+                --query 'SessionId' --output text) &
+
+              sleep 10
+              
+              SESSION_ID=$(aws ssm describe-sessions --region me-south-1 --state Active --filter "key=Target, value=$INSTANCE_ID" --query "Sessions[0].SessionId" --output text)
+              echo $SESSION_ID > /tmp/ssm_session_id
+
+              PR_NUMBER=$(basename << pipeline.parameters.pr_number >>)
+
+              if [ "<< parameters.action >>" = "create" ]; then
+                # Create schema
+                PGPASSWORD="$DB_PASSWORD" psql -h localhost -p 5432 -U $DB_USER -d $DB_NAME \
+                  -c "CREATE SCHEMA IF NOT EXISTS pr_$PR_NUMBER;"
+                
+                # Set DATABASE_URL environment variable for Prisma
+                export DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@localhost:5432/$DB_NAME?schema=pr_$PR_NUMBER"
+                
+                # Run Prisma migrations with explicit schema path
+                echo "Running Prisma migrations..."
+                prisma migrate deploy --schema="./prisma/schema.prisma"
+                
+              else
+                # Drop schema (this will automatically remove all tables)
+                PGPASSWORD="$DB_PASSWORD" psql -h localhost -p 5432 -U $DB_USER -d $DB_NAME \
+                  -c "DROP SCHEMA IF EXISTS pr_$PR_NUMBER CASCADE;"
+              fi
+
+        - run:
+            name: Terminate SSM Session
+            command: |
+              SESSION_ID=$(cat /tmp/ssm_session_id)
+              AWS_PAGER="" aws ssm terminate-session --session-id $SESSION_ID --region me-south-1
+
+
+jobs:
+  plan:
+    executor: terraform-executor
+    steps:
+      - checkout
+      - setup_ephemeral_repo
+      - run:
+          name: Terraform Init (DynamoDb Only)
+          command: |
+            cd ephemeral/terraform/stages/ephemeral
+            terraform init \
+              -backend-config="key=ephemeral-environments/pr-<< pipeline.parameters.pr_number >>/terraform.tfstate" \
+              -backend-config="dynamodb_table=dz-eph-pr-<< pipeline.parameters.pr_number >>-locks"
+      - run:
+          name: Create DynamoDB Table
+          command: |
+            cd ephemeral/terraform/stages/ephemeral
+            terraform apply -var-file="terraform.ephemeral.tfvars" -var="pr_number=<< pipeline.parameters.pr_number >>" -target=aws_dynamodb_table.locks -auto-approve -lock=false
+
+      - terraform_init
+      - terraform_plan
+      - persist_to_workspace:
+          root: ~/project/ephemeral/terraform/stages
+          paths:
+            - ephemeral/.terraform
+            - ephemeral/tfplan
+            - ephemeral/*.tf
+            - ephemeral/*.tfvars
+
+  create_schema:
+    executor: node-executor
+    steps:
+      - manage_schema:
+          action: "create"
+
+  apply:
+    executor: terraform-executor
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ~/project/ephemeral
+      - decrypt_env_and_upload
+      - terraform_init
+      - terraform_plan
+      - terraform_apply
+
+  cleanup_schema:
+    executor: node-executor
+    steps:
+      - manage_schema:
+          action: "drop"
+
+  cleanup:
+    executor: terraform-executor
+    steps:
+      - checkout
+      - attach_workspace:
+          at: terraform
+      - terraform_init
+      - terraform_destroy
+      - run:
+          name: Install GitHub CLI
+          command: |
+            apk add --no-cache curl
+
+            curl -fsSL https://github.com/cli/cli/releases/download/v2.40.1/gh_2.40.1_linux_amd64.tar.gz -o gh.tar.gz
+            tar -xzf gh.tar.gz
+            mv gh_*_linux_amd64/bin/gh /usr/local/bin/gh
+
+            rm -rf gh.tar.gz gh_*_linux_amd64
+      - run:
+          name: Merge PR to Main
+          command: |
+            unset GITHUB_TOKEN
+
+            echo $GITHUB_TOKEN | gh auth login --with-token
+
+            PR_NUMBER=$(gh pr list --state open --head $CIRCLE_BRANCH --json number --jq '.[0].number')
+
+            if [ -n "$PR_NUMBER" ]; then
+              gh pr merge $PR_NUMBER --squash --delete-branch
+            else
+              echo "No open PR found for branch $CIRCLE_BRANCH"
+            fi
+  
+  build_app:
+    executor: aws-ecr/default
+    resource_class: medium
+    working_directory: ~/project
+    steps:
+      - checkout
+      - run:
+          name: Set AWS Account ID to Lowercase
+          command: |
+            echo "Converting AWS Account ID to lowercase"
+            export LOWERCASE_AWS_ACCOUNT_ID=$(echo "$AWS_ACCOUNT_ID" | tr '[:upper:]' '[:lower:]')
+            echo "AWS Account ID in lowercase: $LOWERCASE_AWS_ACCOUNT_ID"
+            echo "export LOWERCASE_AWS_ACCOUNT_ID=$LOWERCASE_AWS_ACCOUNT_ID" >> $BASH_ENV
+      - aws-cli/setup
+      - aws-ecr/ecr_login:
+          account_id: $LOWERCASE_AWS_ACCOUNT_ID
+          region: $AWS_REGION
+      - aws-ecr/build_image:
+          repo: "digitalzone-${CIRCLE_BRANCH}-be"
+          tag: ${CIRCLE_SHA1}
+          region: $AWS_REGION
+          account_id: $LOWERCASE_AWS_ACCOUNT_ID
+          push_image: true
+
+
+  deploy_to_ecs:
+    executor: aws-cli/default
+    resource_class: small
+    steps:
+      - run:
+          name: Set AWS Account ID to Lowercase
+          command: |
+            echo "Converting AWS Account ID to lowercase"
+            export LOWERCASE_AWS_ACCOUNT_ID=$(echo "$AWS_ACCOUNT_ID" | tr '[:upper:]' '[:lower:]')
+            echo "AWS Account ID in lowercase: $LOWERCASE_AWS_ACCOUNT_ID"
+            echo "export LOWERCASE_AWS_ACCOUNT_ID=$LOWERCASE_AWS_ACCOUNT_ID" >> $BASH_ENV
+      - aws-cli/setup
+      - aws-ecs/update-service:
+          cluster: "dz-eph-ephemeral-environment"
+          service-name: "be"
+          container-image-name-updates: "container=app,image-and-tag=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/digitalzone-${CIRCLE_BRANCH}-be:${CIRCLE_SHA1}"
+          family: "ephemeral-<< pipeline.parameters.pr_number >>-be"
+          verify-revision-is-deployed: true
+      - aws-ecr/tag_image:
+          repo: "ephemeral-<< pipeline.parameters.pr_number >>-be"
+          source_tag: ${CIRCLE_SHA1}
+
+workflows:
+  version: 2
+  ephemeral-pipeline:
+    jobs:
+      - plan:
+          context: aws-creds
+      - hold_for_schema_infrastructure_creation:
+          type: approval
+          requires:
+            - plan
+      - create_schema:
+          requires:
+            - hold_for_schema_infrastructure_creation
+          context: aws-creds
+      - apply:
+          requires:
+            - create_schema
+          context: aws-creds
+      - hold_for_deploy_to_ecs:  
+          type: approval
+          requires:
+            - apply
+          # filters:
+          #   branches:
+          #     only: fix/add-ephe-env-in-steps
+      - build_app:
+          name: build and push app (ephemeral)
+          context: aws-creds  
+          requires:
+            - hold_for_deploy_to_ecs
+          # filters:
+          #   branches:
+          #     only: fix/add-ephe-env-in-steps
+      - deploy_to_ecs:
+          name: deploy app (ephemeral)
+          context: aws-creds
+          requires:
+            - build and push app (ephemeral)
+      - hold_for_cleanup:
+          type: approval
+          requires:
+            - deploy app (ephemeral)
+      - cleanup_schema:
+          requires:
+            - hold_for_cleanup
+          context: aws-creds
+      - cleanup:
+          requires:
+            - hold_for_cleanup
+          context: aws-creds
+      

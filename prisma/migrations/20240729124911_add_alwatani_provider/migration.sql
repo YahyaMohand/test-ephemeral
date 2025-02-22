@@ -1,0 +1,4 @@
+
+ALTER TYPE "ProviderType" ADD VALUE 'ALWATANI_TOPUP';
+
+
