@@ -56,20 +56,39 @@ commands:
             tar -xvzf age-v1.0.0-linux-amd64.tar.gz
             mv age/age /usr/local/bin/
       - run:
-          name: "Decrypt .env.age"
+          name: "Decrypt envs.yml.age (If Exists)"
           command: |
-            echo "$AGE_SECRET_KEY" > /tmp/age-key.txt
-            age -d -i /tmp/age-key.txt -o envs.yml envs.yml.age
-            cat envs.yml
+            if [ -f "envs.yml.age" ]; then
+              echo "$AGE_SECRET_KEY" > /tmp/age-key.txt
+              age -d -i /tmp/age-key.txt -o envs.yml envs.yml.age
+              echo "=== Decrypted envs.yml ==="
+              cat envs.yml
+            else
+              echo "envs.yml.age not found, skipping decryption step."
+            fi
+
       - run:
-          name: "Upload YAML Variables to AWS SSM"
+          name: "Upload YAML Variables to AWS SSM (If Exists)"
           command: |
+            if [ ! -f "envs.yml" ]; then
+              echo "envs.yml not found, skipping upload step."
+              exit 0
+            fi
+
             export AWS_PAGER=""
 
             # Convert YAML to JSON and iterate over keys
             yq -o=json eval envs.yml | jq -r 'to_entries | .[] | @base64' | while read -r entry; do
               key=$(echo "$entry" | base64 -d | jq -r '.key')
               value=$(echo "$entry" | base64 -d | jq -r '.value')
+
+              # Check if the parameter already exists in AWS SSM
+              EXISTING_VALUE=$(aws ssm get-parameter --name "/dz-eph/be/<< pipeline.parameters.pr_number >>/envs/$key" --with-decryption --query "Parameter.Value" --output text 2>/dev/null || echo "NOT_FOUND")
+
+              if [ "$EXISTING_VALUE" == "$value" ]; then
+                echo "Skipping unchanged variable: $key"
+                continue
+              fi
 
               # Handle multiline RSA keys and other long values
               if [[ "$value" == *"-----BEGIN "* ]]; then
@@ -83,6 +102,7 @@ commands:
                 --type "SecureString" \
                 --overwrite
             done
+
 
   terraform_init:
     description: "Initialize Terraform"
