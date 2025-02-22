@@ -51,7 +51,7 @@ commands:
       - run:
           name: "Install age, yq"
           command: |
-            apk add --no-cache curl bash jq yq
+            apk add --no-cache curl bash jq yq aws-cli
             curl -LO https://github.com/FiloSottile/age/releases/download/v1.0.0/age-v1.0.0-linux-amd64.tar.gz
             tar -xvzf age-v1.0.0-linux-amd64.tar.gz
             mv age/age /usr/local/bin/
