@@ -76,18 +76,17 @@ commands:
             fi
 
             export AWS_PAGER=""
+            PR_NUMBER="<< pipeline.parameters.pr_number >>"
+            PR_SCHEMA="pr_${PR_NUMBER}"
 
             # Convert YAML to JSON and iterate over keys
             yq -o=json eval envs.yml | jq -r 'to_entries | .[] | @base64' | while read -r entry; do
               key=$(echo "$entry" | base64 -d | jq -r '.key')
               value=$(echo "$entry" | base64 -d | jq -r '.value')
 
-              # Check if the parameter already exists in AWS SSM
-              EXISTING_VALUE=$(aws ssm get-parameter --name "/dz-eph/be/<< pipeline.parameters.pr_number >>/envs/$key" --with-decryption --query "Parameter.Value" --output text 2>/dev/null || echo "NOT_FOUND")
-
-              if [ "$EXISTING_VALUE" == "$value" ]; then
-                echo "Skipping unchanged variable: $key"
-                continue
+              # Modify DATABASE_URL to include the schema dynamically
+              if [[ "$key" == "DATABASE_URL" ]]; then
+                value="${value}?schema=${PR_SCHEMA}"
               fi
 
               # Handle multiline RSA keys and other long values
@@ -97,7 +96,7 @@ commands:
 
               echo "Uploading: $key=****"
               aws ssm put-parameter \
-                --name "/dz-eph/be/<< pipeline.parameters.pr_number >>/envs/$key" \
+                --name "/dz-eph/be/${PR_NUMBER}/envs/$key" \
                 --value "$value" \
                 --type "SecureString" \
                 --overwrite
