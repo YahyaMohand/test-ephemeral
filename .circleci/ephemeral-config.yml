@@ -373,50 +373,50 @@ workflows:
   version: 2
   ephemeral-pipeline:
     jobs:
-      # - plan:
-      #     context: aws-creds
-      # - hold_for_schema_infrastructure_creation:
-      #     type: approval
-      #     requires:
-      #       - plan
-      # - create_schema:
-      #     requires:
-      #       - hold_for_schema_infrastructure_creation
-      #     context: aws-creds
-      - apply:
-          # requires:
-          #   - create_schema
+      - plan:
           context: aws-creds
-      # - hold_for_deploy_to_ecs:  
-      #     type: approval
-      #     requires:
-      #       - apply
-      #     # filters:
-      #     #   branches:
-      #     #     only: fix/add-ephe-env-in-steps
-      # - build_app:
-      #     name: build and push app (ephemeral)
-      #     context: aws-creds  
-      #     requires:
-      #       - hold_for_deploy_to_ecs
-      #     # filters:
-      #     #   branches:
-      #     #     only: fix/add-ephe-env-in-steps
-      # - deploy_to_ecs:
-      #     name: deploy app (ephemeral)
-      #     context: aws-creds
-      #     requires:
-      #       - build and push app (ephemeral)
-      # - hold_for_cleanup:
-      #     type: approval
-      #     requires:
-      #       - deploy app (ephemeral)
-      # - cleanup_schema:
-      #     requires:
-      #       - hold_for_cleanup
-      #     context: aws-creds
-      # - cleanup:
-      #     requires:
-      #       - hold_for_cleanup
-      #     context: aws-creds
+      - hold_for_schema_infrastructure_creation:
+          type: approval
+          requires:
+            - plan
+      - create_schema:
+          requires:
+            - hold_for_schema_infrastructure_creation
+          context: aws-creds
+      - apply:
+          requires:
+            - create_schema
+          context: aws-creds
+      - hold_for_deploy_to_ecs:  
+          type: approval
+          requires:
+            - apply
+          # filters:
+          #   branches:
+          #     only: fix/add-ephe-env-in-steps
+      - build_app:
+          name: build and push app (ephemeral)
+          context: aws-creds  
+          requires:
+            - hold_for_deploy_to_ecs
+          # filters:
+          #   branches:
+          #     only: fix/add-ephe-env-in-steps
+      - deploy_to_ecs:
+          name: deploy app (ephemeral)
+          context: aws-creds
+          requires:
+            - build and push app (ephemeral)
+      - hold_for_cleanup:
+          type: approval
+          requires:
+            - deploy app (ephemeral)
+      - cleanup_schema:
+          requires:
+            - hold_for_cleanup
+          context: aws-creds
+      - cleanup:
+          requires:
+            - hold_for_cleanup
+          context: aws-creds
       
