@@ -280,6 +280,7 @@ jobs:
           at: ~/project/ephemeral
       - decrypt_env_and_upload
       - terraform_init
+      - terraform_plan
       - terraform_apply
 
   cleanup_schema:
