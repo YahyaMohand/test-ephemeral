@@ -182,12 +182,11 @@ commands:
           enum: ["create", "drop"]
           default: "create"
       steps:
-        - checkout  # Add this to ensure code is available
+        - checkout
         - setup_db_tools
         - run:
             name: "Setup AWS SSM Tunnel and Manage Schema"
             command: |
-              # Print working directory and list files for debugging
               pwd
               ls -la
               
