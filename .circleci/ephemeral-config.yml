@@ -62,15 +62,19 @@ commands:
             age -d -i /tmp/age-key.txt -o envs.yml envs.yml.age
             cat envs.yml
       - run:
-          name: "Upload YAML Variables to AWS SSM Paramter store"
+          name: "Upload YAML Variables to AWS SSM"
           command: |
             export AWS_PAGER=""
-
-            yq eval -j envs.yml | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
+            
+            # Convert YAML to JSON and iterate over keys
+            yq -o=json eval envs.yml | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
+              key=$(echo "$key" | xargs)  # Trim spaces
+              
+              # Handle multiline values (RSA_PRIVATE)
               if [[ "$value" == "|" ]]; then
                 value=$(yq eval ".${key}" envs.yml)
               fi
-
+              
               echo "Uploading: $key=****"
               aws ssm put-parameter \
                 --name "/dz-eph/be/<< pipeline.parameters.pr_number >>/envs/$key" \
@@ -349,50 +353,50 @@ workflows:
   version: 2
   ephemeral-pipeline:
     jobs:
-      - plan:
-          context: aws-creds
-      - hold_for_schema_infrastructure_creation:
-          type: approval
-          requires:
-            - plan
-      - create_schema:
-          requires:
-            - hold_for_schema_infrastructure_creation
-          context: aws-creds
+      # - plan:
+      #     context: aws-creds
+      # - hold_for_schema_infrastructure_creation:
+      #     type: approval
+      #     requires:
+      #       - plan
+      # - create_schema:
+      #     requires:
+      #       - hold_for_schema_infrastructure_creation
+      #     context: aws-creds
       - apply:
-          requires:
-            - create_schema
+          # requires:
+          #   - create_schema
           context: aws-creds
-      - hold_for_deploy_to_ecs:  
-          type: approval
-          requires:
-            - apply
-          # filters:
-          #   branches:
-          #     only: fix/add-ephe-env-in-steps
-      - build_app:
-          name: build and push app (ephemeral)
-          context: aws-creds  
-          requires:
-            - hold_for_deploy_to_ecs
-          # filters:
-          #   branches:
-          #     only: fix/add-ephe-env-in-steps
-      - deploy_to_ecs:
-          name: deploy app (ephemeral)
-          context: aws-creds
-          requires:
-            - build and push app (ephemeral)
-      - hold_for_cleanup:
-          type: approval
-          requires:
-            - deploy app (ephemeral)
-      - cleanup_schema:
-          requires:
-            - hold_for_cleanup
-          context: aws-creds
-      - cleanup:
-          requires:
-            - hold_for_cleanup
-          context: aws-creds
+      # - hold_for_deploy_to_ecs:  
+      #     type: approval
+      #     requires:
+      #       - apply
+      #     # filters:
+      #     #   branches:
+      #     #     only: fix/add-ephe-env-in-steps
+      # - build_app:
+      #     name: build and push app (ephemeral)
+      #     context: aws-creds  
+      #     requires:
+      #       - hold_for_deploy_to_ecs
+      #     # filters:
+      #     #   branches:
+      #     #     only: fix/add-ephe-env-in-steps
+      # - deploy_to_ecs:
+      #     name: deploy app (ephemeral)
+      #     context: aws-creds
+      #     requires:
+      #       - build and push app (ephemeral)
+      # - hold_for_cleanup:
+      #     type: approval
+      #     requires:
+      #       - deploy app (ephemeral)
+      # - cleanup_schema:
+      #     requires:
+      #       - hold_for_cleanup
+      #     context: aws-creds
+      # - cleanup:
+      #     requires:
+      #       - hold_for_cleanup
+      #     context: aws-creds
       
