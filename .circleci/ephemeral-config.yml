@@ -69,7 +69,8 @@ commands:
             # Convert YAML to JSON and iterate over keys
             yq -o=json eval envs.yml | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
               key=$(echo "$key" | xargs)  # Trim spaces
-              
+              value=$(echo "$value" | xargs)  # Trim spaces
+
               # Handle multiline values (RSA_PRIVATE)
               if [[ "$value" == "|" ]]; then
                 value=$(yq eval ".${key}" envs.yml)
