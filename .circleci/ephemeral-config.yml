@@ -255,9 +255,9 @@ jobs:
             
             # Fetch available ephemeral backends from ECS
             BACKEND_SERVICES=$(aws ecs list-services --cluster dz-eph-ephemeral-environment | jq -r '.serviceArns[] | select(contains("be-")) | split("/") | last')
-            
+
             # Start the HTML page
-            cat > /tmp/workspace/backend-selector.html << EOL
+            cat > /tmp/workspace/backend-selector.html <<EOF
             <!DOCTYPE html>
             <html>
             <head>
@@ -275,7 +275,7 @@ jobs:
               <h1>Select Backend for Frontend</h1>
               <form id="backendForm">
                 <select id="backendSelect" name="backend_service">
-            EOL
+            EOF
             
             # Add backend options to the HTML
             for service in $BACKEND_SERVICES; do
@@ -283,7 +283,7 @@ jobs:
             done
             
             # Finish the HTML page
-            cat >> /tmp/workspace/backend-selector.html << EOL
+            cat >> /tmp/workspace/backend-selector.html <<EOF
                 </select>
                 <button type="submit">Continue with Selected Backend</button>
               </form>
@@ -302,7 +302,7 @@ jobs:
               </script>
             </body>
             </html>
-            EOL
+            EOF
             
             echo "Created backend selection HTML page"
       - store_artifacts:
