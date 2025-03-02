@@ -313,7 +313,7 @@ jobs:
       - checkout
       - run:
           name: Set API URL
-          shell: bash
+          shell: sh
           command: |
             echo "Using backend: ${CIRCLE_PIPELINE_PARAMETERS.backend_service}"
             echo "NEXT_PUBLIC_API_URL=https://${CIRCLE_PIPELINE_PARAMETERS.backend_service}" >> .env
