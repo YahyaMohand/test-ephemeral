@@ -242,10 +242,24 @@ commands:
 
 
 jobs:
+  fetch-backends:
+    docker:
+      - image: amazon/aws-cli
+    steps:
+      - run:
+          name: Fetch available ephemeral backends
+          command: |
+            AVAILABLE_BACKENDS=$(aws ecs list-services --cluster dz-eph-ephemeral-environment | jq -r '.serviceArns[] | select(contains("be-")) | split("/") | last')
+            echo "Available backends: $AVAILABLE_BACKENDS"
+            echo 'export BACKEND_OPTIONS=("fetch-from-aws" '"$AVAILABLE_BACKENDS"')' >> $BASH_ENV
   plan:
     executor: terraform-executor
     steps:
       - checkout
+      - run:
+          name: Use Selected Backend
+          command: |
+            echo "NEXT_PUBLIC_API_URL=https://${CIRCLE_PIPELINE_PARAMETERS.backend_service}.eph.digitalzone-dev.net" >> .env
       - setup_ephemeral_repo
       - run:
           name: Terraform Init (DynamoDb Only)
@@ -377,9 +391,12 @@ workflows:
   version: 2
   ephemeral-pipeline:
     jobs:
+      - fetch-backends
       - hold:
           type: approval
           description: "Select the backend service before deploying the frontend"
+          requires:
+            - fetch-backends
       - plan:
           context: aws-creds
       - hold_for_schema_infrastructure_creation:
