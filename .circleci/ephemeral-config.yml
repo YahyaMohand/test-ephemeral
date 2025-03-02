@@ -391,13 +391,17 @@ workflows:
   version: 2
   ephemeral-pipeline:
     jobs:
-      - fetch-backends
+      - fetch-backends:
+          context: aws-creds
       - hold:
           type: approval
           description: "Select the backend service before deploying the frontend"
           requires:
             - fetch-backends
+          context: aws-creds
       - plan:
+          requires:
+            - hold
           context: aws-creds
       - hold_for_schema_infrastructure_creation:
           type: approval
