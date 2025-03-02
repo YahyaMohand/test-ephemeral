@@ -246,7 +246,7 @@ jobs:
     steps:
       - run:
           name: Install jq
-          command: yum install -y jq
+          command: yum install -y tar jq
       - run:
           name: Create backend selection HTML
           command: |
