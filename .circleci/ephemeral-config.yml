@@ -10,7 +10,7 @@ parameters:
   backend_service:
     type: enum
     enum: ["be-pr-1221.eph.digitalzone-dev.net", "be-pr-1222.eph.digitalzone-dev.net", "be-pr-1223.eph.digitalzone-dev.net"]
-    default: "be-pr-1221.eph.digitalzone-dev.net" 
+    default: "be-pr-1221.eph.digitalzone-dev.net"
     description: "Select the ephemeral backend service for the frontend"  
   pr_number:
       type: string
