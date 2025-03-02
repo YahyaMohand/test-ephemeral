@@ -250,61 +250,55 @@ jobs:
       - run:
           name: Create backend selection HTML
           command: |
-            # Create a directory for artifacts
+            # Create directory for artifacts
             mkdir -p /tmp/workspace
             
             # Fetch available ephemeral backends from ECS
             BACKEND_SERVICES=$(aws ecs list-services --cluster dz-eph-ephemeral-environment | jq -r '.serviceArns[] | select(contains("be-")) | split("/") | last')
 
-            # Start the HTML page
-            cat > /tmp/workspace/backend-selector.html <<EOF
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <title>Backend Selection</title>
-              <style>
-                body { font-family: Arial, sans-serif; padding: 20px; }
-                h1 { color: #333; }
-                form { margin: 20px 0; }
-                select { padding: 8px; width: 300px; margin-right: 10px; }
-                button { padding: 8px 16px; background-color: #0d6efd; color: white; border: none; cursor: pointer; }
-                .current { margin-top: 20px; padding: 10px; background-color: #f8f9fa; border-radius: 4px; }
-              </style>
-            </head>
-            <body>
-              <h1>Select Backend for Frontend</h1>
-              <form id="backendForm">
-                <select id="backendSelect" name="backend_service">
-            EOF
+            # Start the HTML file
+            echo '<!DOCTYPE html>' > /tmp/workspace/backend-selector.html
+            echo '<html>' >> /tmp/workspace/backend-selector.html
+            echo '<head>' >> /tmp/workspace/backend-selector.html
+            echo '  <title>Backend Selection</title>' >> /tmp/workspace/backend-selector.html
+            echo '  <style>' >> /tmp/workspace/backend-selector.html
+            echo '    body { font-family: Arial, sans-serif; padding: 20px; }' >> /tmp/workspace/backend-selector.html
+            echo '    h1 { color: #333; }' >> /tmp/workspace/backend-selector.html
+            echo '    form { margin: 20px 0; }' >> /tmp/workspace/backend-selector.html
+            echo '    select { padding: 8px; width: 300px; margin-right: 10px; }' >> /tmp/workspace/backend-selector.html
+            echo '    button { padding: 8px 16px; background-color: #0d6efd; color: white; border: none; cursor: pointer; }' >> /tmp/workspace/backend-selector.html
+            echo '    .current { margin-top: 20px; padding: 10px; background-color: #f8f9fa; border-radius: 4px; }' >> /tmp/workspace/backend-selector.html
+            echo '  </style>' >> /tmp/workspace/backend-selector.html
+            echo '</head>' >> /tmp/workspace/backend-selector.html
+            echo '<body>' >> /tmp/workspace/backend-selector.html
+            echo '  <h1>Select Backend for Frontend</h1>' >> /tmp/workspace/backend-selector.html
+            echo '  <form id="backendForm">' >> /tmp/workspace/backend-selector.html
+            echo '    <select id="backendSelect" name="backend_service">' >> /tmp/workspace/backend-selector.html
             
-            # Add backend options to the HTML
+            # Add backend options dynamically
             for service in $BACKEND_SERVICES; do
               echo "    <option value=\"${service}.eph.digitalzone-dev.net\">${service}</option>" >> /tmp/workspace/backend-selector.html
             done
-            
-            # Finish the HTML page
-            cat >> /tmp/workspace/backend-selector.html <<EOF
-                </select>
-                <button type="submit">Continue with Selected Backend</button>
-              </form>
-              
-              <div class="current">
-                <h3>Current Frontend PR:</h3>
-                <p>PR #<< pipeline.parameters.pr_number >></p>
-              </div>
-              
-              <script>
-                document.getElementById('backendForm').addEventListener('submit', function(e) {
-                  e.preventDefault();
-                  const selectedBackend = document.getElementById('backendSelect').value;
-                  window.location.href = 'https://circleci.com/api/v2/project/gh/DigitalZoneApp/platform/pipeline?backend_service=' + encodeURIComponent(selectedBackend);
-                });
-              </script>
-            </body>
-            </html>
-            EOF
+
+            echo '    </select>' >> /tmp/workspace/backend-selector.html
+            echo '    <button type="submit">Continue with Selected Backend</button>' >> /tmp/workspace/backend-selector.html
+            echo '  </form>' >> /tmp/workspace/backend-selector.html
+            echo '  <div class="current">' >> /tmp/workspace/backend-selector.html
+            echo '    <h3>Current Frontend PR:</h3>' >> /tmp/workspace/backend-selector.html
+            echo '    <p>PR #<< pipeline.parameters.pr_number >></p>' >> /tmp/workspace/backend-selector.html
+            echo '  </div>' >> /tmp/workspace/backend-selector.html
+            echo '  <script>' >> /tmp/workspace/backend-selector.html
+            echo '    document.getElementById("backendForm").addEventListener("submit", function(e) {' >> /tmp/workspace/backend-selector.html
+            echo '      e.preventDefault();' >> /tmp/workspace/backend-selector.html
+            echo '      const selectedBackend = document.getElementById("backendSelect").value;' >> /tmp/workspace/backend-selector.html
+            echo '      window.location.href = "https://circleci.com/api/v2/project/gh/DigitalZoneApp/platform/pipeline?backend_service=" + encodeURIComponent(selectedBackend);' >> /tmp/workspace/backend-selector.html
+            echo '    });' >> /tmp/workspace/backend-selector.html
+            echo '  </script>' >> /tmp/workspace/backend-selector.html
+            echo '</body>' >> /tmp/workspace/backend-selector.html
+            echo '</html>' >> /tmp/workspace/backend-selector.html
             
             echo "Created backend selection HTML page"
+
       - store_artifacts:
           path: /tmp/workspace
           destination: artifacts
@@ -312,6 +306,7 @@ jobs:
           root: /tmp/workspace
           paths:
             - backend-selector.html
+
   plan:
     executor: terraform-executor
     steps:
