@@ -312,11 +312,13 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Use Selected Backend
+          name: Set API URL
+          shell: bash
           command: |
             echo "Using backend: ${CIRCLE_PIPELINE_PARAMETERS.backend_service}"
             echo "NEXT_PUBLIC_API_URL=https://${CIRCLE_PIPELINE_PARAMETERS.backend_service}" >> .env
             cat .env
+
       - setup_ephemeral_repo
       - run:
           name: Terraform Init (DynamoDb Only)
