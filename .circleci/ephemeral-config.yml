@@ -8,8 +8,7 @@ orbs:
 
 parameters:
   backend_service:
-    type: enum
-    enum: ["be-pr-1221.eph.digitalzone-dev.net", "be-pr-1222.eph.digitalzone-dev.net", "be-pr-1223.eph.digitalzone-dev.net"]
+    type: string
     default: "be-pr-1221.eph.digitalzone-dev.net"
     description: "Select the ephemeral backend service for the frontend"  
   pr_number:
@@ -247,13 +246,72 @@ jobs:
     steps:
       - run:
           name: Install jq
-          command: yum install -y jq  # Install jq for Amazon Linux-based images
+          command: yum install -y jq
       - run:
-          name: Fetch available ephemeral backends
+          name: Create backend selection HTML
           command: |
-            AVAILABLE_BACKENDS=$(aws ecs list-services --cluster dz-eph-ephemeral-environment | jq -r '.serviceArns[] | select(contains("be-")) | split("/") | last')
-            echo "Available backends: $AVAILABLE_BACKENDS"
-            echo 'export BACKEND_OPTIONS=("fetch-from-aws" '"$AVAILABLE_BACKENDS"')' >> $BASH_ENV
+            # Create a directory for artifacts
+            mkdir -p /tmp/workspace
+            
+            # Fetch available ephemeral backends from ECS
+            BACKEND_SERVICES=$(aws ecs list-services --cluster dz-eph-ephemeral-environment | jq -r '.serviceArns[] | select(contains("be-")) | split("/") | last')
+            
+            # Start the HTML page
+            cat > /tmp/workspace/backend-selector.html << EOL
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <title>Backend Selection</title>
+              <style>
+                body { font-family: Arial, sans-serif; padding: 20px; }
+                h1 { color: #333; }
+                form { margin: 20px 0; }
+                select { padding: 8px; width: 300px; margin-right: 10px; }
+                button { padding: 8px 16px; background-color: #0d6efd; color: white; border: none; cursor: pointer; }
+                .current { margin-top: 20px; padding: 10px; background-color: #f8f9fa; border-radius: 4px; }
+              </style>
+            </head>
+            <body>
+              <h1>Select Backend for Frontend</h1>
+              <form id="backendForm">
+                <select id="backendSelect" name="backend_service">
+            EOL
+            
+            # Add backend options to the HTML
+            for service in $BACKEND_SERVICES; do
+              echo "    <option value=\"${service}.eph.digitalzone-dev.net\">${service}</option>" >> /tmp/workspace/backend-selector.html
+            done
+            
+            # Finish the HTML page
+            cat >> /tmp/workspace/backend-selector.html << EOL
+                </select>
+                <button type="submit">Continue with Selected Backend</button>
+              </form>
+              
+              <div class="current">
+                <h3>Current Frontend PR:</h3>
+                <p>PR #<< pipeline.parameters.pr_number >></p>
+              </div>
+              
+              <script>
+                document.getElementById('backendForm').addEventListener('submit', function(e) {
+                  e.preventDefault();
+                  const selectedBackend = document.getElementById('backendSelect').value;
+                  window.location.href = 'https://circleci.com/api/v2/project/gh/DigitalZoneApp/platform/pipeline?backend_service=' + encodeURIComponent(selectedBackend);
+                });
+              </script>
+            </body>
+            </html>
+            EOL
+            
+            echo "Created backend selection HTML page"
+      - store_artifacts:
+          path: /tmp/workspace
+          destination: artifacts
+      - persist_to_workspace:
+          root: /tmp/workspace
+          paths:
+            - backend-selector.html
   plan:
     executor: terraform-executor
     steps:
@@ -261,7 +319,9 @@ jobs:
       - run:
           name: Use Selected Backend
           command: |
-            echo "NEXT_PUBLIC_API_URL=https://${CIRCLE_PIPELINE_PARAMETERS.backend_service}.eph.digitalzone-dev.net" >> .env
+            echo "Using backend: ${CIRCLE_PIPELINE_PARAMETERS.backend_service}"
+            echo "NEXT_PUBLIC_API_URL=https://${CIRCLE_PIPELINE_PARAMETERS.backend_service}" >> .env
+            cat .env
       - setup_ephemeral_repo
       - run:
           name: Terraform Init (DynamoDb Only)
