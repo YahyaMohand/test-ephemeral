@@ -7,9 +7,14 @@ orbs:
   slack: circleci/slack@5.1.1
 
 parameters:
+  backend_service:
+    type: enum
+    enum: ["be-pr-1221.eph.digitalzone-dev.net", "be-pr-1222.eph.digitalzone-dev.net", "be-pr-1223.eph.digitalzone-dev.net"]
+    default: "be-pr-1221.eph.digitalzone-dev.net"
+    description: "Select the ephemeral backend service for the frontend"  
   pr_number:
-    type: string
-    default: ${CIRCLE_PULL_REQUEST##*/}
+      type: string
+      default: ${CIRCLE_PULL_REQUEST##*/}
   pr_branch:
     type: string
     default: ${CIRCLE_BRANCH}
@@ -372,6 +377,9 @@ workflows:
   version: 2
   ephemeral-pipeline:
     jobs:
+      - hold:
+          type: approval
+          description: "Select the backend service before deploying the frontend"
       - plan:
           context: aws-creds
       - hold_for_schema_infrastructure_creation:
