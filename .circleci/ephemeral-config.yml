@@ -312,8 +312,11 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Install Bash (Terraform Executor)
+          command: apk add --no-cache bash
+      - run:
           name: Set API URL
-          shell: sh
+          shell: bash
           command: |
             echo "Using backend: ${CIRCLE_PIPELINE_PARAMETERS.backend_service}"
             echo "NEXT_PUBLIC_API_URL=https://${CIRCLE_PIPELINE_PARAMETERS.backend_service}" >> .env
