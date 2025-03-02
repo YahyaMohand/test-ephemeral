@@ -318,9 +318,11 @@ jobs:
           name: Set API URL
           shell: bash
           command: |
-            echo "Using backend: ${CIRCLE_PIPELINE_PARAMETERS.backend_service}"
-            echo "NEXT_PUBLIC_API_URL=https://${CIRCLE_PIPELINE_PARAMETERS.backend_service}" >> .env
+            BACKEND_URL="https://<< pipeline.parameters.backend_service >>"
+            echo "Using backend: $BACKEND_URL"
+            echo "NEXT_PUBLIC_API_URL=$BACKEND_URL" >> .env
             cat .env
+
 
       - setup_ephemeral_repo
       - run:
