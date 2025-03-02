@@ -243,9 +243,11 @@ commands:
 
 jobs:
   fetch-backends:
-    docker:
-      - image: amazon/aws-cli
+    executor: aws-cli-executor
     steps:
+      - run:
+          name: Install jq
+          command: yum install -y jq  # Install jq for Amazon Linux-based images
       - run:
           name: Fetch available ephemeral backends
           command: |
