@@ -2,79 +2,74 @@
 <html>
 <head>
     <title>Select Backend</title>
-    <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        h1 { color: #333; }
-        form { margin: 20px 0; }
-        select { padding: 8px; width: 300px; margin-right: 10px; }
-        button { padding: 8px 16px; background-color: #0d6efd; color: white; border: none; cursor: pointer; }
-    </style>
-</head>
-<body>
-    <h1>Select Backend for Frontend</h1>
-    <form id="backendForm">
-        <label for="backendSelect">Choose Backend:</label>
-        <select id="backendSelect">
-            <!-- Options will be populated dynamically -->
-        </select>
-        <button type="button" onclick="saveSelection()">Save Selection</button>
-    </form>
-    <p>Selected Backend: <span id="selectedBackend"></span></p>
-
     <script type="module">
-        import AWS from "https://cdn.skypack.dev/aws-sdk";
-    
-        AWS.config.update({
-            region: "me-south-1"  // Change this to your AWS region
-        });
-    
-        const ssm = new AWS.SSM();
-    
+        import { SSMClient, PutParameterCommand, GetParameterCommand } from "https://cdn.skypack.dev/@aws-sdk/client-ssm";
+
+        // AWS Config (Credentials will be passed securely)
+        const REGION = "me-south-1";  // Change to your AWS region
+        const ssmClient = new SSMClient({ region: REGION });
+
         async function saveSelection() {
             const selectedBackend = document.getElementById("backendSelect").value;
             localStorage.setItem("selectedBackend", selectedBackend);
             document.getElementById("selectedBackend").textContent = selectedBackend;
-    
+
             try {
-                await ssm.putParameter({
+                const command = new PutParameterCommand({
                     Name: "/selected-backend",
                     Value: selectedBackend,
-                    Type: "SecureString",  // Ensures encryption with default AWS KMS
+                    Type: "SecureString",  // Use KMS for encryption
                     Overwrite: true
-                }).promise();
-    
-                alert("Selected backend saved to AWS SSM (KMS Encrypted)!");
+                });
+
+                await ssmClient.send(command);
+                alert("Backend saved successfully in AWS SSM (KMS encrypted).");
+
             } catch (error) {
                 console.error("Error saving to SSM:", error);
-                alert("Failed to save backend selection.");
+                alert("Failed to save backend.");
             }
         }
-    
+
         async function loadBackends() {
-            const response = await fetch('available-backends.txt');
-            const backends = await response.text();
-            const backendArray = backends.split('\n').filter(b => b.trim().length > 0);
-    
-            const select = document.getElementById("backendSelect");
-            backendArray.forEach(backend => {
-                const option = document.createElement("option");
-                option.value = backend + ".eph.digitalzone-dev.net";
-                option.textContent = backend;
-                select.appendChild(option);
-            });
-    
             try {
-                const result = await ssm.getParameter({ Name: "/selected-backend", WithDecryption: true }).promise();
+                const response = await fetch('available-backends.txt');
+                const backends = await response.text();
+                const backendArray = backends.split('\n').filter(b => b.trim().length > 0);
+
+                const select = document.getElementById("backendSelect");
+                backendArray.forEach(backend => {
+                    const option = document.createElement("option");
+                    option.value = backend + ".eph.digitalzone-dev.net";
+                    option.textContent = backend;
+                    select.appendChild(option);
+                });
+
+                // Retrieve stored backend
+                const command = new GetParameterCommand({ Name: "/selected-backend", WithDecryption: true });
+                const result = await ssmClient.send(command);
                 const storedBackend = result.Parameter.Value;
-                select.value = storedBackend;
-                document.getElementById("selectedBackend").textContent = storedBackend;
+
+                if (storedBackend) {
+                    select.value = storedBackend;
+                    document.getElementById("selectedBackend").textContent = storedBackend;
+                }
             } catch (error) {
-                console.warn("No previous backend selection found.");
+                console.warn("No stored backend found.");
             }
         }
-    
+
         document.addEventListener("DOMContentLoaded", loadBackends);
+        window.saveSelection = saveSelection;  // Ensure function is accessible in HTML onclick
     </script>
-    
+</head>
+<body>
+    <h1>Select Backend</h1>
+    <form id="backendForm">
+        <label for="backendSelect">Choose Backend:</label>
+        <select id="backendSelect"></select>
+        <button type="button" onclick="saveSelection()">Save Selection</button>
+    </form>
+    <p>Selected Backend: <span id="selectedBackend"></span></p>
 </body>
 </html>
