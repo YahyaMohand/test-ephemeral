@@ -278,30 +278,30 @@ jobs:
 
 
   
-capture-selection:
-  executor: aws-cli-executor
-  steps:
-    - run:
-        name: Install required packages
-        command: yum install -y tar gzip jq
-    - attach_workspace:
-        at: /tmp/workspace
-    - run:
-        name: Read selected backend from saved file
-        command: |
-          if [ -f "/tmp/workspace/save-backend.txt" ]; then
-            SELECTED_BACKEND=$(cat /tmp/workspace/save-backend.txt)
-            echo "Selected backend updated to: $SELECTED_BACKEND"
-            echo "$SELECTED_BACKEND" > /tmp/workspace/selected-backend.txt
-          else
-            SELECTED_BACKEND="<< pipeline.parameters.backend_service >>"
-            echo "No selection found, using default: $SELECTED_BACKEND"
-            echo "$SELECTED_BACKEND" > /tmp/workspace/selected-backend.txt
-          fi
-    - persist_to_workspace:
-        root: /tmp/workspace
-        paths:
-          - selected-backend.txt
+  capture-selection:
+    executor: aws-cli-executor
+    steps:
+      - run:
+          name: Install required packages
+          command: yum install -y tar gzip jq
+      - attach_workspace:
+          at: /tmp/workspace
+      - run:
+          name: Read selected backend from saved file
+          command: |
+            if [ -f "/tmp/workspace/save-backend.txt" ]; then
+              SELECTED_BACKEND=$(cat /tmp/workspace/save-backend.txt)
+              echo "Selected backend updated to: $SELECTED_BACKEND"
+              echo "$SELECTED_BACKEND" > /tmp/workspace/selected-backend.txt
+            else
+              SELECTED_BACKEND="<< pipeline.parameters.backend_service >>"
+              echo "No selection found, using default: $SELECTED_BACKEND"
+              echo "$SELECTED_BACKEND" > /tmp/workspace/selected-backend.txt
+            fi
+      - persist_to_workspace:
+          root: /tmp/workspace
+          paths:
+            - selected-backend.txt
 
   plan:
     executor: terraform-executor
@@ -445,13 +445,13 @@ workflows:
           requires:
             - fetch-backends
           context: aws-creds
-      - capture-backend-selection:
+      - capture-selection:
           requires:
             - select-backend
           context: aws-creds
       - plan:
           requires:
-            - capture-backend-selection
+            - capture-selection
           context: aws-creds
       - hold_for_schema_infrastructure_creation:
           type: approval
