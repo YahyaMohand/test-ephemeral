@@ -271,19 +271,6 @@ jobs:
             
             # Create help info that will be shown as an artifact
             mkdir -p /tmp/artifacts
-            cat > /tmp/artifacts/backend-selection-help.txt << EOL
-            ========= BACKEND SELECTION HELP =========
-            
-            Available backends:
-            $BACKEND_SERVICES
-            
-            How to select a backend:
-            1. When you reach the "select-backend" approval step, you'll see a prompt
-            2. Type ONLY the backend name (e.g. "be-454") in the approval message field
-            3. Click "Approve" to continue
-            
-            Current default: $DEFAULT_BACKEND
-            EOL
 
       - store_artifacts:
           path: /tmp/artifacts
