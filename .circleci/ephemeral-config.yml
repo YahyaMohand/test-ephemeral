@@ -255,17 +255,14 @@ jobs:
             
             # Fetch available ephemeral backends from AWS ECS
             BACKEND_SERVICES=$(aws ecs list-services --cluster dz-eph-ephemeral-environment | jq -r '.serviceArns[] | select(contains("be-")) | split("/") | last')
-
+            
             # Save backends to a file
             echo "$BACKEND_SERVICES" > /tmp/workspace/available-backends.txt
-
-            # Copy the HTML file from the repo to CircleCI workspace
-            cp backend-selector.html /tmp/workspace/
-
+            
             # Use default backend if no selection is found
             DEFAULT_BACKEND="<< pipeline.parameters.backend_service >>"
             echo "$DEFAULT_BACKEND" > /tmp/workspace/selected-backend.txt
-
+      
       - store_artifacts:
           path: /tmp/workspace
           destination: artifacts
@@ -273,8 +270,8 @@ jobs:
           root: /tmp/workspace
           paths:
             - available-backends.txt
-            - backend-selector.html
             - selected-backend.txt
+            - SELECT_BACKEND_INSTRUCTIONS.txt
 
 
   
@@ -287,7 +284,7 @@ jobs:
       - attach_workspace:
           at: /tmp/workspace
       - run:
-          name: Read selected backend from file
+          name: Read selected backend from saved file
           command: |
             if [ -f "/tmp/workspace/save-backend.txt" ]; then
               SELECTED_BACKEND=$(cat /tmp/workspace/save-backend.txt)
@@ -298,7 +295,6 @@ jobs:
               echo "No selection found, using default: $SELECTED_BACKEND"
               echo "$SELECTED_BACKEND" > /tmp/workspace/selected-backend.txt
             fi
-
       - persist_to_workspace:
           root: /tmp/workspace
           paths:
