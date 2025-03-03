@@ -60,7 +60,7 @@
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
-                        "Circle-Token": "CIRCLECI_TOKEN_2"  // CircleCI Token (Securely Passed from Env)
+                        "Circle-Token": 'proccess.env.CIRCLE_TOKEN_2'  // CircleCI Token (Securely Passed from Env)
                     },
                     body: JSON.stringify(requestBody)
                 });

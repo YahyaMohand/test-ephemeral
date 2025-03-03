@@ -256,44 +256,72 @@ jobs:
             # Fetch available ephemeral backends from AWS ECS
             BACKEND_SERVICES=$(aws ecs list-services --cluster dz-eph-ephemeral-environment | jq -r '.serviceArns[] | select(contains("be-")) | split("/") | last')
 
-            # Save backends to a file
+            # Save backends to a file for reference
             echo "$BACKEND_SERVICES" > /tmp/workspace/available-backends.txt
-
-            # Copy the HTML file from the repo to CircleCI workspace
-            cp backend-selector.html /tmp/workspace/
-
+            
+            # Create a summary for approval screen instructions
+            echo "Choose one of these backends:" > /tmp/workspace/backend-instructions.txt
+            echo "$BACKEND_SERVICES" >> /tmp/workspace/backend-instructions.txt
+            echo "" >> /tmp/workspace/backend-instructions.txt
+            echo "To select a backend, type its name (e.g. 'be-454') in the approval message field." >> /tmp/workspace/backend-instructions.txt
+            
             # Use default backend if no selection is found
             DEFAULT_BACKEND="<< pipeline.parameters.backend_service >>"
             echo "$DEFAULT_BACKEND" > /tmp/workspace/selected-backend.txt
+            
+            # Create help info that will be shown as an artifact
+            mkdir -p /tmp/artifacts
 
       - store_artifacts:
-          path: /tmp/workspace
-          destination: artifacts
+          path: /tmp/artifacts
+          destination: help
+      - store_artifacts:
+          path: /tmp/workspace/backend-instructions.txt
+          destination: instructions.txt
       - persist_to_workspace:
           root: /tmp/workspace
           paths:
             - available-backends.txt
-            - backend-selector.html
+            - backend-instructions.txt
             - selected-backend.txt
 
-  capture-selection:
+  # This job captures the backend selection from the approval message
+  capture-backend-selection:
     executor: aws-cli-executor
     steps:
       - attach_workspace:
           at: /tmp/workspace
       - run:
-          name: Read uploaded selected backend
+          name: Get backend selection from approval message
           command: |
-            if [ -f "/tmp/workspace/selected-backend.txt" ]; then
-              SELECTED_BACKEND=$(cat /tmp/workspace/selected-backend.txt)
-              echo "Using updated selected backend: $SELECTED_BACKEND"
+            # Get the approval message which contains the backend name
+            BACKEND_SELECTION="${CIRCLE_JOB_APPROVAL_MESSAGE}"
+            
+            if [ ! -z "$BACKEND_SELECTION" ]; then
+              echo "User selected backend: $BACKEND_SELECTION"
+              
+              # Check if the selection is in the available backends list
+              if grep -q "^$BACKEND_SELECTION$" /tmp/workspace/available-backends.txt; then
+                echo "$BACKEND_SELECTION.eph.digitalzone-dev.net" > /tmp/workspace/selected-backend.txt
+                echo "Backend selection saved as: $BACKEND_SELECTION.eph.digitalzone-dev.net"
+              else
+                echo "Warning: '$BACKEND_SELECTION' was not found in available backends list."
+                echo "Using default backend: $(cat /tmp/workspace/selected-backend.txt)"
+              fi
             else
-              SELECTED_BACKEND="<< pipeline.parameters.backend_service >>"
-              echo "No user selection found, using default: $SELECTED_BACKEND"
+              echo "No backend selected. Using default: $(cat /tmp/workspace/selected-backend.txt)"
             fi
-
-            echo "$SELECTED_BACKEND" > /tmp/workspace/selected-backend.txt
-
+            
+            # Save the selection as an artifact for visibility
+            mkdir -p /tmp/artifacts
+            echo "Selected Backend: $(cat /tmp/workspace/selected-backend.txt)" > /tmp/artifacts/selection.txt
+            
+            # Export the backend for use in later jobs
+            echo "export BACKEND_SERVICE=$(cat /tmp/workspace/selected-backend.txt)" >> $BASH_ENV
+      
+      - store_artifacts:
+          path: /tmp/artifacts
+          destination: selection
       - persist_to_workspace:
           root: /tmp/workspace
           paths:
@@ -441,13 +469,13 @@ workflows:
           requires:
             - fetch-backends
           context: aws-creds
-      - capture-selection:
+      - capture-backend-selection:
           requires:
             - select-backend
           context: aws-creds
       - plan:
           requires:
-            - capture-selection
+            - capture-backend-selection
           context: aws-creds
       - hold_for_schema_infrastructure_creation:
           type: approval
