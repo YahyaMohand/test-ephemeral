@@ -244,60 +244,34 @@ jobs:
   fetch-backends:
     executor: aws-cli-executor
     steps:
+      - checkout
       - run:
-          name: Install jq
+          name: Install required packages
           command: yum install -y tar gzip jq
       - run:
-          name: Fetch available backends and generate HTML file
+          name: Fetch available backends
           command: |
             mkdir -p /tmp/workspace
             
             # Fetch available ephemeral backends from AWS ECS
             BACKEND_SERVICES=$(aws ecs list-services --cluster dz-eph-ephemeral-environment | jq -r '.serviceArns[] | select(contains("be-")) | split("/") | last')
 
-            # Save the list of backends
+            # Save backends to a file
             echo "$BACKEND_SERVICES" > /tmp/workspace/available-backends.txt
 
-            # Default backend (fallback)
+            # Copy the HTML file from the repo to CircleCI workspace
+            cp backend-selector.html /tmp/workspace/
+
+            # Use default backend value if no selection is found
             DEFAULT_BACKEND="<< pipeline.parameters.backend_service >>"
             echo "$DEFAULT_BACKEND" > /tmp/workspace/selected-backend.txt
-
-            # Create the HTML file
-            echo '<!DOCTYPE html>' > /tmp/workspace/backend-selector.html
-            echo '<html><head><title>Select Backend</title>' >> /tmp/workspace/backend-selector.html
-            echo '<style>body { font-family: Arial, sans-serif; padding: 20px; } h1 { color: #333; } form { margin: 20px 0; } select { padding: 8px; width: 300px; } button { padding: 8px 16px; background-color: #0d6efd; color: white; border: none; cursor: pointer; }</style>' >> /tmp/workspace/backend-selector.html
-            echo '</head><body><h1>Select Backend for Frontend</h1><form id="backendForm"><label for="backendSelect">Choose Backend:</label><select id="backendSelect" name="backend_service">' >> /tmp/workspace/backend-selector.html
-
-            # Add backend options dynamically
-            for service in $BACKEND_SERVICES; do
-              echo "    <option value=\"$service.eph.digitalzone-dev.net\">$service</option>" >> /tmp/workspace/backend-selector.html
-            done
-
-            echo '</select><button type="button" onclick="saveSelection()">Save Selection</button></form>' >> /tmp/workspace/backend-selector.html
-            echo '<p>Selected Backend: <span id="selectedBackend"></span></p>' >> /tmp/workspace/backend-selector.html
-
-            # JavaScript to send selection back to CircleCI
-            echo '<script>function saveSelection() { var selectedBackend = document.getElementById("backendSelect").value; localStorage.setItem("selectedBackend", selectedBackend); document.getElementById("selectedBackend").textContent = selectedBackend; fetch("/save-backend", { method: "POST", body: selectedBackend, headers: { "Content-Type": "text/plain" }}); } document.addEventListener("DOMContentLoaded", function() { var storedBackend = localStorage.getItem("selectedBackend"); if (storedBackend) { document.getElementById("backendSelect").value = storedBackend; document.getElementById("selectedBackend").textContent = storedBackend; }});</script>' >> /tmp/workspace/backend-selector.html
-            echo '</body></html>' >> /tmp/workspace/backend-selector.html
-
-            echo "Created backend selection HTML page."
-
-      - store_artifacts:
-          path: /tmp/workspace
-          destination: artifacts
-      - persist_to_workspace:
-          root: /tmp/workspace
-          paths:
-            - available-backends.txt
-            - selected-backend.txt
-            - backend-selector.html
 
   
   select-backend:
     executor: aws-cli-executor
     steps:
       - run:
-          name: Install jq
+          name: Install required packages
           command: yum install -y tar gzip jq
       - attach_workspace:
           at: /tmp/workspace
@@ -309,7 +283,7 @@ jobs:
               echo "Using selected backend: $SELECTED_BACKEND"
             else
               SELECTED_BACKEND="<< pipeline.parameters.backend_service >>"
-              echo "No selection found, using default: $SELECTED_BACKEND"
+              echo "No selection found, using default backend: $SELECTED_BACKEND"
             fi
 
             # Store the backend service parameter

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Select Backend</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        h1 { color: #333; }
+        form { margin: 20px 0; }
+        select { padding: 8px; width: 300px; margin-right: 10px; }
+        button { padding: 8px 16px; background-color: #0d6efd; color: white; border: none; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Select Backend for Frontend</h1>
+    <form id="backendForm">
+        <label for="backendSelect">Choose Backend:</label>
+        <select id="backendSelect">
+            <!-- Options will be populated dynamically -->
+        </select>
+        <button type="button" onclick="saveSelection()">Save Selection</button>
+    </form>
+    <p>Selected Backend: <span id="selectedBackend"></span></p>
+
+    <script>
+        async function loadBackends() {
+            const response = await fetch('available-backends.txt');
+            const backends = await response.text();
+            const backendArray = backends.split('\n').filter(b => b.trim().length > 0);
+
+            const select = document.getElementById("backendSelect");
+            backendArray.forEach(backend => {
+                const option = document.createElement("option");
+                option.value = backend + ".eph.digitalzone-dev.net";
+                option.textContent = backend;
+                select.appendChild(option);
+            });
+
+            const storedBackend = localStorage.getItem("selectedBackend");
+            if (storedBackend) {
+                select.value = storedBackend;
+                document.getElementById("selectedBackend").textContent = storedBackend;
+            }
+        }
+
+        function saveSelection() {
+            const selectedBackend = document.getElementById("backendSelect").value;
+            localStorage.setItem("selectedBackend", selectedBackend);
+            document.getElementById("selectedBackend").textContent = selectedBackend;
+
+            fetch('/save-backend', {
+                method: 'POST',
+                body: selectedBackend,
+                headers: { 'Content-Type': 'text/plain' }
+            }).then(() => alert("Selected backend saved successfully!"));
+        }
+
+        document.addEventListener("DOMContentLoaded", loadBackends);
+    </script>
+</body>
+</html>
