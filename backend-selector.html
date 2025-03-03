@@ -8,87 +8,59 @@
         form { margin: 20px 0; }
         select { padding: 8px; width: 300px; margin-right: 10px; }
         button { padding: 8px 16px; background-color: #0d6efd; color: white; border: none; cursor: pointer; }
-        #message { margin-top: 10px; padding: 10px; display: none; }
-        .success { background-color: #dff0d8; color: #3c763d; }
-        .error { background-color: #f2dede; color: #a94442; }
     </style>
 </head>
 <body>
     <h1>Select Backend for Frontend</h1>
-    <form id="backendForm" method="POST" action="/save-backend">
+    <form id="backendForm">
         <label for="backendSelect">Choose Backend:</label>
-        <select id="backendSelect" name="backend">
+        <select id="backendSelect">
             <!-- Options will be populated dynamically -->
         </select>
-        <button type="submit">Save Selection</button>
+        <button type="button" onclick="saveSelection()">Save Selection</button>
     </form>
     <p>Selected Backend: <span id="selectedBackend"></span></p>
-    <div id="message"></div>
 
     <script>
         async function loadBackends() {
-            try {
-                const response = await fetch('available-backends.txt');
-                const backends = await response.text();
-                const backendArray = backends.split('\n').filter(b => b.trim().length > 0);
+            const response = await fetch('available-backends.txt');
+            const backends = await response.text();
+            const backendArray = backends.split('\n').filter(b => b.trim().length > 0);
 
-                const select = document.getElementById("backendSelect");
-                backendArray.forEach(backend => {
-                    const option = document.createElement("option");
-                    option.value = backend + ".eph.digitalzone-dev.net";
-                    option.textContent = backend;
-                    select.appendChild(option);
-                });
+            const select = document.getElementById("backendSelect");
+            backendArray.forEach(backend => {
+                const option = document.createElement("option");
+                option.value = backend + ".eph.digitalzone-dev.net";
+                option.textContent = backend;
+                select.appendChild(option);
+            });
 
-                // Load current selection if available
-                try {
-                    const currentResponse = await fetch('selected-backend.txt');
-                    const currentBackend = await currentResponse.text();
-                    if (currentBackend.trim()) {
-                        select.value = currentBackend.trim();
-                        document.getElementById("selectedBackend").textContent = currentBackend.trim();
-                    }
-                } catch (err) {
-                    console.log("No current selection found");
-                }
-            } catch (error) {
-                console.error("Error loading backends:", error);
-                showMessage("Failed to load available backends", false);
+            const storedBackend = localStorage.getItem("selectedBackend");
+            if (storedBackend) {
+                select.value = storedBackend;
+                document.getElementById("selectedBackend").textContent = storedBackend;
             }
         }
 
-        function showMessage(text, isSuccess) {
-            const msgElement = document.getElementById("message");
-            msgElement.textContent = text;
-            msgElement.className = isSuccess ? "success" : "error";
-            msgElement.style.display = "block";
-        }
-
-        document.getElementById("backendForm").addEventListener("submit", async function(e) {
-            e.preventDefault();
-            
+        function saveSelection() {
             const selectedBackend = document.getElementById("backendSelect").value;
+            localStorage.setItem("selectedBackend", selectedBackend);
             document.getElementById("selectedBackend").textContent = selectedBackend;
-            
-            try {
-                const formData = new FormData();
-                formData.append("backend", selectedBackend);
-                
-                const response = await fetch("save-backend.txt", {
-                    method: "POST",
-                    body: formData
-                });
-                
-                if (response.ok) {
-                    showMessage("Backend selection saved successfully!", true);
+
+            // Send the selected backend to the server
+            fetch('/save-backend', {
+                method: 'POST',
+                body: JSON.stringify({ backend: selectedBackend }),
+                headers: { 'Content-Type': 'application/json' }
+            }).then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert("Selected backend saved successfully!");
                 } else {
-                    showMessage("Failed to save backend selection", false);
+                    alert("Failed to save the selected backend.");
                 }
-            } catch (error) {
-                console.error("Error saving selection:", error);
-                showMessage("Error saving selection", false);
-            }
-        });
+            });
+        }
 
         document.addEventListener("DOMContentLoaded", loadBackends);
     </script>

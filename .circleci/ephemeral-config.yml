@@ -242,39 +242,52 @@ commands:
 
 jobs:
   fetch-backends:
-    executor: aws-cli-executor
-    steps:
-      - checkout
-      - run:
-          name: Install required packages
-          command: yum install -y tar gzip jq
-      - run:
-          name: Fetch available backends
-          command: |
-            mkdir -p /tmp/workspace
-            
-            # Fetch available ephemeral backends from AWS ECS
-            BACKEND_SERVICES=$(aws ecs list-services --cluster dz-eph-ephemeral-environment | jq -r '.serviceArns[] | select(contains("be-")) | split("/") | last')
-            
-            # Save backends to a file
-            echo "$BACKEND_SERVICES" > /tmp/workspace/available-backends.txt
-            
-            # Use default backend if no selection is found
-            DEFAULT_BACKEND="<< pipeline.parameters.backend_service >>"
-            echo "$DEFAULT_BACKEND" > /tmp/workspace/selected-backend.txt
-      
-      - store_artifacts:
-          path: /tmp/workspace
-          destination: artifacts
-      - persist_to_workspace:
-          root: /tmp/workspace
-          paths:
-            - available-backends.txt
-            - selected-backend.txt
-            - SELECT_BACKEND_INSTRUCTIONS.txt
+      executor: aws-cli-executor
+      steps:
+        - checkout
+        - run:
+            name: Install required packages
+            command: yum install -y tar gzip jq
+        - run:
+            name: Fetch available backends
+            command: |
+              mkdir -p /tmp/workspace/data
+              
+              # Fetch available ephemeral backends from AWS ECS
+              BACKEND_SERVICES=$(aws ecs list-services --cluster dz-eph-ephemeral-environment | jq -r '.serviceArns[] | select(contains("be-")) | split("/") | last')
+
+              # Save backends to a file
+              echo "$BACKEND_SERVICES" > /tmp/workspace/data/available-backends.txt
+
+              # Copy the HTML file from the repo to CircleCI workspace
+              cp backend-selector.html /tmp/workspace/public/
+
+              # Create public directory for static files
+              mkdir -p /tmp/workspace/public
+              
+              # Use default backend if no selection is found
+              DEFAULT_BACKEND="<< pipeline.parameters.backend_service >>"
+              echo "$DEFAULT_BACKEND" > /tmp/workspace/data/selected-backend.txt
+              
+              # Create empty save-backend.txt file for later use
+              touch /tmp/workspace/data/save-backend.txt
+              
+              # Copy the server file to workspace
+              cp backend-selector-server.js /tmp/workspace/
+
+        - store_artifacts:
+            path: /tmp/workspace
+            destination: artifacts
+        - persist_to_workspace:
+            root: /tmp/workspace
+            paths:
+              - available-backends.txt
+              - selected-backend.txt
+              - save-backend.txt
+              - backend-selector.html
+              - backend-selector-server.js
 
 
-  
   capture-selection:
     executor: aws-cli-executor
     steps:
@@ -286,19 +299,33 @@ jobs:
       - run:
           name: Read selected backend from saved file
           command: |
-            if [ -f "/tmp/workspace/save-backend.txt" ]; then
-              SELECTED_BACKEND=$(cat /tmp/workspace/save-backend.txt)
+            if [ -f "/tmp/workspace/data/save-backend.txt" ] && [ -s "/tmp/workspace/data/save-backend.txt" ]; then
+              SELECTED_BACKEND=$(cat /tmp/workspace/data/save-backend.txt)
               echo "Selected backend updated to: $SELECTED_BACKEND"
-              echo "$SELECTED_BACKEND" > /tmp/workspace/selected-backend.txt
+              echo "$SELECTED_BACKEND" > /tmp/workspace/data/selected-backend.txt
+              
+              # Export for use in later steps
+              echo "export BACKEND_SERVICE=$SELECTED_BACKEND" >> $BASH_ENV
             else
               SELECTED_BACKEND="<< pipeline.parameters.backend_service >>"
               echo "No selection found, using default: $SELECTED_BACKEND"
-              echo "$SELECTED_BACKEND" > /tmp/workspace/selected-backend.txt
+              echo "$SELECTED_BACKEND" > /tmp/workspace/data/selected-backend.txt
+              
+              # Export for use in later steps
+              echo "export BACKEND_SERVICE=$SELECTED_BACKEND" >> $BASH_ENV
             fi
+            
+            # Store the selected backend as an artifact for visibility
+            mkdir -p /tmp/artifacts
+            echo "Selected Backend: $SELECTED_BACKEND" > /tmp/artifacts/selected-backend-info.txt
+            
+      - store_artifacts:
+          path: /tmp/artifacts
+          destination: selection-info
       - persist_to_workspace:
           root: /tmp/workspace
           paths:
-            - selected-backend.txt
+            - data/selected-backend.txt
 
   plan:
     executor: terraform-executor
