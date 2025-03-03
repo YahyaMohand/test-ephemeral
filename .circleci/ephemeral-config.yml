@@ -256,76 +256,52 @@ jobs:
             # Fetch available ephemeral backends from AWS ECS
             BACKEND_SERVICES=$(aws ecs list-services --cluster dz-eph-ephemeral-environment | jq -r '.serviceArns[] | select(contains("be-")) | split("/") | last')
 
-            # Save backends to a file for reference
+            # Save backends to a file
             echo "$BACKEND_SERVICES" > /tmp/workspace/available-backends.txt
-            
-            # Create a summary for approval screen instructions
-            echo "Choose one of these backends:" > /tmp/workspace/backend-instructions.txt
-            echo "$BACKEND_SERVICES" >> /tmp/workspace/backend-instructions.txt
-            echo "" >> /tmp/workspace/backend-instructions.txt
-            echo "To select a backend, type its name (e.g. 'be-454') in the approval message field." >> /tmp/workspace/backend-instructions.txt
-            
+
+            # Copy the HTML file from the repo to CircleCI workspace
+            cp backend-selector.html /tmp/workspace/
+
             # Use default backend if no selection is found
             DEFAULT_BACKEND="<< pipeline.parameters.backend_service >>"
             echo "$DEFAULT_BACKEND" > /tmp/workspace/selected-backend.txt
-            
-            # Create help info that will be shown as an artifact
-            mkdir -p /tmp/artifacts
 
       - store_artifacts:
-          path: /tmp/artifacts
-          destination: help
-      - store_artifacts:
-          path: /tmp/workspace/backend-instructions.txt
-          destination: instructions.txt
+          path: /tmp/workspace
+          destination: artifacts
       - persist_to_workspace:
           root: /tmp/workspace
           paths:
             - available-backends.txt
-            - backend-instructions.txt
+            - backend-selector.html
             - selected-backend.txt
 
-  # This job captures the backend selection from the approval message
-  capture-backend-selection:
-    executor: aws-cli-executor
-    steps:
-      - attach_workspace:
-          at: /tmp/workspace
-      - run:
-          name: Get backend selection from approval message
-          command: |
-            # Get the approval message which contains the backend name
-            BACKEND_SELECTION="${CIRCLE_JOB_APPROVAL_MESSAGE}"
-            
-            if [ ! -z "$BACKEND_SELECTION" ]; then
-              echo "User selected backend: $BACKEND_SELECTION"
-              
-              # Check if the selection is in the available backends list
-              if grep -q "^$BACKEND_SELECTION$" /tmp/workspace/available-backends.txt; then
-                echo "$BACKEND_SELECTION.eph.digitalzone-dev.net" > /tmp/workspace/selected-backend.txt
-                echo "Backend selection saved as: $BACKEND_SELECTION.eph.digitalzone-dev.net"
-              else
-                echo "Warning: '$BACKEND_SELECTION' was not found in available backends list."
-                echo "Using default backend: $(cat /tmp/workspace/selected-backend.txt)"
-              fi
-            else
-              echo "No backend selected. Using default: $(cat /tmp/workspace/selected-backend.txt)"
-            fi
-            
-            # Save the selection as an artifact for visibility
-            mkdir -p /tmp/artifacts
-            echo "Selected Backend: $(cat /tmp/workspace/selected-backend.txt)" > /tmp/artifacts/selection.txt
-            
-            # Export the backend for use in later jobs
-            echo "export BACKEND_SERVICE=$(cat /tmp/workspace/selected-backend.txt)" >> $BASH_ENV
-      
-      - store_artifacts:
-          path: /tmp/artifacts
-          destination: selection
-      - persist_to_workspace:
-          root: /tmp/workspace
-          paths:
-            - selected-backend.txt
+
+  
+capture-selection:
+  executor: aws-cli-executor
+  steps:
+    - run:
+        name: Install required packages
+        command: yum install -y tar gzip jq
+    - attach_workspace:
+        at: /tmp/workspace
+    - run:
+        name: Read selected backend from saved file
+        command: |
+          if [ -f "/tmp/workspace/save-backend.txt" ]; then
+            SELECTED_BACKEND=$(cat /tmp/workspace/save-backend.txt)
+            echo "Selected backend updated to: $SELECTED_BACKEND"
+            echo "$SELECTED_BACKEND" > /tmp/workspace/selected-backend.txt
+          else
+            SELECTED_BACKEND="<< pipeline.parameters.backend_service >>"
+            echo "No selection found, using default: $SELECTED_BACKEND"
+            echo "$SELECTED_BACKEND" > /tmp/workspace/selected-backend.txt
+          fi
+    - persist_to_workspace:
+        root: /tmp/workspace
+        paths:
+          - selected-backend.txt
 
   plan:
     executor: terraform-executor
