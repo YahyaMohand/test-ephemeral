@@ -242,53 +242,64 @@ commands:
 
 jobs:
   fetch-backends:
-      executor: aws-cli-executor
-      steps:
-        - checkout
-        - run:
-            name: Install required packages
-            command: yum install -y tar gzip jq
-        - run:
-            name: Fetch available backends
-            command: |
-              mkdir -p /tmp/workspace/data
-              
-              # Fetch available ephemeral backends from AWS ECS
-              BACKEND_SERVICES=$(aws ecs list-services --cluster dz-eph-ephemeral-environment | jq -r '.serviceArns[] | select(contains("be-")) | split("/") | last')
+    executor: aws-cli-executor
+    steps:
+      - checkout
+      - run:
+          name: Install required packages
+          command: yum install -y tar gzip jq
+      - run:
+          name: Fetch available backends
+          command: |
+            mkdir -p /tmp/workspace
+            
+            # Fetch available ephemeral backends from AWS ECS
+            BACKEND_SERVICES=$(aws ecs list-services --cluster dz-eph-ephemeral-environment | jq -r '.serviceArns[] | select(contains("be-")) | split("/") | last')
 
-              # Save backends to a file
-              echo "$BACKEND_SERVICES" > /tmp/workspace/data/available-backends.txt
+            # Save backends to a file for reference
+            echo "$BACKEND_SERVICES" > /tmp/workspace/available-backends.txt
+            
+            # Create a summary for approval screen instructions
+            echo "Choose one of these backends:" > /tmp/workspace/backend-instructions.txt
+            echo "$BACKEND_SERVICES" >> /tmp/workspace/backend-instructions.txt
+            echo "" >> /tmp/workspace/backend-instructions.txt
+            echo "To select a backend, type its name (e.g. 'be-454') in the approval message field." >> /tmp/workspace/backend-instructions.txt
+            
+            # Use default backend if no selection is found
+            DEFAULT_BACKEND="<< pipeline.parameters.backend_service >>"
+            echo "$DEFAULT_BACKEND" > /tmp/workspace/selected-backend.txt
+            
+            # Create help info that will be shown as an artifact
+            mkdir -p /tmp/artifacts
+            cat > /tmp/artifacts/backend-selection-help.txt << EOL
+            ========= BACKEND SELECTION HELP =========
+            
+            Available backends:
+            $BACKEND_SERVICES
+            
+            How to select a backend:
+            1. When you reach the "select-backend" approval step, you'll see a prompt
+            2. Type ONLY the backend name (e.g. "be-454") in the approval message field
+            3. Click "Approve" to continue
+            
+            Current default: $DEFAULT_BACKEND
+            EOL
 
-              # Copy the HTML file from the repo to CircleCI workspace
-              cp backend-selector.html /tmp/workspace/public/
+      - store_artifacts:
+          path: /tmp/artifacts
+          destination: help
+      - store_artifacts:
+          path: /tmp/workspace/backend-instructions.txt
+          destination: instructions.txt
+      - persist_to_workspace:
+          root: /tmp/workspace
+          paths:
+            - available-backends.txt
+            - backend-instructions.txt
+            - selected-backend.txt
 
-              # Create public directory for static files
-              mkdir -p /tmp/workspace/public
-              
-              # Use default backend if no selection is found
-              DEFAULT_BACKEND="<< pipeline.parameters.backend_service >>"
-              echo "$DEFAULT_BACKEND" > /tmp/workspace/data/selected-backend.txt
-              
-              # Create empty save-backend.txt file for later use
-              touch /tmp/workspace/data/save-backend.txt
-              
-              # Copy the server file to workspace
-              cp backend-selector-server.js /tmp/workspace/
-
-        - store_artifacts:
-            path: /tmp/workspace
-            destination: artifacts
-        - persist_to_workspace:
-            root: /tmp/workspace
-            paths:
-              - data/available-backends.txt
-              - data/selected-backend.txt
-              - data/save-backend.txt
-              - public/backend-selector.html
-              - backend-selector-server.js
-
-
-  capture-selection:
+  # This job captures the backend selection from the approval message
+  capture-backend-selection:
     executor: aws-cli-executor
     steps:
       - run:
@@ -297,35 +308,40 @@ jobs:
       - attach_workspace:
           at: /tmp/workspace
       - run:
-          name: Read selected backend from saved file
+          name: Get backend selection from approval message
           command: |
-            if [ -f "/tmp/workspace/data/save-backend.txt" ] && [ -s "/tmp/workspace/data/save-backend.txt" ]; then
-              SELECTED_BACKEND=$(cat /tmp/workspace/data/save-backend.txt)
-              echo "Selected backend updated to: $SELECTED_BACKEND"
-              echo "$SELECTED_BACKEND" > /tmp/workspace/data/selected-backend.txt
+            # Get the approval message which contains the backend name
+            BACKEND_SELECTION="${CIRCLE_JOB_APPROVAL_MESSAGE}"
+            
+            if [ ! -z "$BACKEND_SELECTION" ]; then
+              echo "User selected backend: $BACKEND_SELECTION"
               
-              # Export for use in later steps
-              echo "export BACKEND_SERVICE=$SELECTED_BACKEND" >> $BASH_ENV
+              # Check if the selection is in the available backends list
+              if grep -q "^$BACKEND_SELECTION$" /tmp/workspace/available-backends.txt; then
+                echo "$BACKEND_SELECTION.eph.digitalzone-dev.net" > /tmp/workspace/selected-backend.txt
+                echo "Backend selection saved as: $BACKEND_SELECTION.eph.digitalzone-dev.net"
+              else
+                echo "Warning: '$BACKEND_SELECTION' was not found in available backends list."
+                echo "Using default backend: $(cat /tmp/workspace/selected-backend.txt)"
+              fi
             else
-              SELECTED_BACKEND="<< pipeline.parameters.backend_service >>"
-              echo "No selection found, using default: $SELECTED_BACKEND"
-              echo "$SELECTED_BACKEND" > /tmp/workspace/data/selected-backend.txt
-              
-              # Export for use in later steps
-              echo "export BACKEND_SERVICE=$SELECTED_BACKEND" >> $BASH_ENV
+              echo "No backend selected. Using default: $(cat /tmp/workspace/selected-backend.txt)"
             fi
             
-            # Store the selected backend as an artifact for visibility
+            # Save the selection as an artifact for visibility
             mkdir -p /tmp/artifacts
-            echo "Selected Backend: $SELECTED_BACKEND" > /tmp/artifacts/selected-backend-info.txt
+            echo "Selected Backend: $(cat /tmp/workspace/selected-backend.txt)" > /tmp/artifacts/selection.txt
             
+            # Export the backend for use in later jobs
+            echo "export BACKEND_SERVICE=$(cat /tmp/workspace/selected-backend.txt)" >> $BASH_ENV
+      
       - store_artifacts:
           path: /tmp/artifacts
-          destination: selection-info
+          destination: selection
       - persist_to_workspace:
           root: /tmp/workspace
           paths:
-            - data/selected-backend.txt
+            - selected-backend.txt
 
   plan:
     executor: terraform-executor
@@ -464,19 +480,18 @@ workflows:
     jobs:
       - fetch-backends:
           context: aws-creds
-      - hold:
+      - select-backend:
           type: approval
-          description: "Select the backend service before deploying the frontend"
           requires:
             - fetch-backends
           context: aws-creds
-      - capture-selection:
+      - capture-backend-selection:
           requires:
-            - hold
+            - select-backend
           context: aws-creds
       - plan:
           requires:
-            - capture-selection
+            - capture-backend-selection
           context: aws-creds
       - hold_for_schema_infrastructure_creation:
           type: approval
