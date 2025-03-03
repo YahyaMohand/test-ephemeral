@@ -286,11 +286,11 @@ jobs:
   select-backend:
     executor: aws-cli-executor
     steps:
+      - run:
+          name: Install jq
+          command: yum install -y tar gzip jq
       - attach_workspace:
           at: /tmp/workspace
-      - run:
-            name: Install jq
-            command: yum install -y tar gzip jq
       - run:
           name: Set selected backend
           command: |
