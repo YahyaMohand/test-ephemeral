@@ -247,7 +247,7 @@ jobs:
       - checkout
       - run:
           name: Install required packages
-          command: yum install -y tar gzip jq
+          command: yum install -y tar gzip jq aws-cli
       - run:
           name: Fetch available backends
           command: |
@@ -259,12 +259,9 @@ jobs:
             # Save backends to a file
             echo "$BACKEND_SERVICES" > /tmp/workspace/available-backends.txt
 
-            # Copy the HTML file from the repo to CircleCI workspace
+            # Inject AWS Credentials into the frontend dynamically
             cp backend-selector.html /tmp/workspace/
-
-            # Use default backend if no selection is found
-            DEFAULT_BACKEND="<< pipeline.parameters.backend_service >>"
-            echo "$DEFAULT_BACKEND" > /tmp/workspace/selected-backend.txt
+            sed -i "s/AWS_REGION/${AWS_REGION}/g" /tmp/workspace/backend-selector.html
 
       - store_artifacts:
           path: /tmp/workspace
@@ -274,30 +271,16 @@ jobs:
           paths:
             - available-backends.txt
             - backend-selector.html
-            - selected-backend.txt
 
-
-  
   capture-selection:
     executor: aws-cli-executor
     steps:
       - run:
-          name: Install required packages
-          command: yum install -y tar gzip jq
-      - attach_workspace:
-          at: /tmp/workspace
-      - run:
-          name: Read selected backend from saved file
+          name: Retrieve Selected Backend from AWS SSM (KMS Encrypted)
           command: |
-            if [ -f "/tmp/workspace/save-backend.txt" ]; then
-              SELECTED_BACKEND=$(cat /tmp/workspace/save-backend.txt)
-              echo "Selected backend updated to: $SELECTED_BACKEND"
-              echo "$SELECTED_BACKEND" > /tmp/workspace/selected-backend.txt
-            else
-              SELECTED_BACKEND="<< pipeline.parameters.backend_service >>"
-              echo "No selection found, using default: $SELECTED_BACKEND"
-              echo "$SELECTED_BACKEND" > /tmp/workspace/selected-backend.txt
-            fi
+            SELECTED_BACKEND=$(aws ssm get-parameter --name "/selected-backend" --with-decryption --query "Parameter.Value" --output text)
+            echo "Backend selection detected: $SELECTED_BACKEND"
+            echo "export SELECTED_BACKEND=$SELECTED_BACKEND" >> $BASH_ENV
       - persist_to_workspace:
           root: /tmp/workspace
           paths:
