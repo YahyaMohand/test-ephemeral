@@ -281,10 +281,10 @@ jobs:
         - persist_to_workspace:
             root: /tmp/workspace
             paths:
-              - available-backends.txt
-              - selected-backend.txt
-              - save-backend.txt
-              - backend-selector.html
+              - data/available-backends.txt
+              - data/selected-backend.txt
+              - data/save-backend.txt
+              - public/backend-selector.html
               - backend-selector-server.js
 
 
