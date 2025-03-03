@@ -256,65 +256,58 @@ jobs:
             # Fetch available ephemeral backends from ECS
             BACKEND_SERVICES=$(aws ecs list-services --cluster dz-eph-ephemeral-environment | jq -r '.serviceArns[] | select(contains("be-")) | split("/") | last')
 
-            # Start the HTML file
-            cat <<EOF > /tmp/workspace/backend-selector.html
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <title>Select Backend</title>
-              <style>
-                body { font-family: Arial, sans-serif; padding: 20px; }
-                h1 { color: #333; }
-                form { margin: 20px 0; }
-                select { padding: 8px; width: 300px; margin-right: 10px; }
-                button { padding: 8px 16px; background-color: #0d6efd; color: white; border: none; cursor: pointer; }
-              </style>
-            </head>
-            <body>
-              <h1>Select Backend for Frontend</h1>
-              <form id="backendForm">
-                <label for="backendSelect">Choose Backend:</label>
-                <select id="backendSelect" name="backend_service">
-                EOF
+            # Start writing the HTML file using echo
+            echo '<!DOCTYPE html>' > /tmp/workspace/backend-selector.html
+            echo '<html>' >> /tmp/workspace/backend-selector.html
+            echo '<head>' >> /tmp/workspace/backend-selector.html
+            echo '  <title>Select Backend</title>' >> /tmp/workspace/backend-selector.html
+            echo '  <style>' >> /tmp/workspace/backend-selector.html
+            echo '    body { font-family: Arial, sans-serif; padding: 20px; }' >> /tmp/workspace/backend-selector.html
+            echo '    h1 { color: #333; }' >> /tmp/workspace/backend-selector.html
+            echo '    form { margin: 20px 0; }' >> /tmp/workspace/backend-selector.html
+            echo '    select { padding: 8px; width: 300px; margin-right: 10px; }' >> /tmp/workspace/backend-selector.html
+            echo '    button { padding: 8px 16px; background-color: #0d6efd; color: white; border: none; cursor: pointer; }' >> /tmp/workspace/backend-selector.html
+            echo '  </style>' >> /tmp/workspace/backend-selector.html
+            echo '</head>' >> /tmp/workspace/backend-selector.html
+            echo '<body>' >> /tmp/workspace/backend-selector.html
+            echo '  <h1>Select Backend for Frontend</h1>' >> /tmp/workspace/backend-selector.html
+            echo '  <form id="backendForm">' >> /tmp/workspace/backend-selector.html
+            echo '    <label for="backendSelect">Choose Backend:</label>' >> /tmp/workspace/backend-selector.html
+            echo '    <select id="backendSelect" name="backend_service">' >> /tmp/workspace/backend-selector.html
 
             # Add backend options dynamically
             for service in $BACKEND_SERVICES; do
-              echo "    <option value=\"$service\">$service</option>" >> /tmp/workspace/backend-selector.html
+              echo "      <option value=\"$service\">$service</option>" >> /tmp/workspace/backend-selector.html
             done
 
-            # Finish the HTML with JavaScript
-            cat <<EOF >> /tmp/workspace/backend-selector.html
-                </select>
-                <button type="button" onclick="saveSelection()">Save Selection</button>
-              </form>
-              <p>Selected Backend: <span id="selectedBackend"></span></p>
+            echo '    </select>' >> /tmp/workspace/backend-selector.html
+            echo '    <button type="button" onclick="saveSelection()">Save Selection</button>' >> /tmp/workspace/backend-selector.html
+            echo '  </form>' >> /tmp/workspace/backend-selector.html
+            echo '  <p>Selected Backend: <span id="selectedBackend"></span></p>' >> /tmp/workspace/backend-selector.html
 
-              <script>
-                function saveSelection() {
-                  var selectedBackend = document.getElementById("backendSelect").value;
-                  localStorage.setItem("selectedBackend", selectedBackend);
-                  document.getElementById("selectedBackend").textContent = selectedBackend;
-                }
-
-                // Load previous selection
-                document.addEventListener("DOMContentLoaded", function() {
-                  var storedBackend = localStorage.getItem("selectedBackend");
-                  if (storedBackend) {
-                    document.getElementById("backendSelect").value = storedBackend;
-                    document.getElementById("selectedBackend").textContent = storedBackend;
-                  }
-                });
-              </script>
-            </body>
-            </html>
-            EOF
-
+            # Add JavaScript for selection handling
+            echo '  <script>' >> /tmp/workspace/backend-selector.html
+            echo '    function saveSelection() {' >> /tmp/workspace/backend-selector.html
+            echo '      var selectedBackend = document.getElementById("backendSelect").value;' >> /tmp/workspace/backend-selector.html
+            echo '      localStorage.setItem("selectedBackend", selectedBackend);' >> /tmp/workspace/backend-selector.html
+            echo '      document.getElementById("selectedBackend").textContent = selectedBackend;' >> /tmp/workspace/backend-selector.html
+            echo '    }' >> /tmp/workspace/backend-selector.html
+            echo '    document.addEventListener("DOMContentLoaded", function() {' >> /tmp/workspace/backend-selector.html
+            echo '      var storedBackend = localStorage.getItem("selectedBackend");' >> /tmp/workspace/backend-selector.html
+            echo '      if (storedBackend) {' >> /tmp/workspace/backend-selector.html
+            echo '        document.getElementById("backendSelect").value = storedBackend;' >> /tmp/workspace/backend-selector.html
+            echo '        document.getElementById("selectedBackend").textContent = storedBackend;' >> /tmp/workspace/backend-selector.html
+            echo '      }' >> /tmp/workspace/backend-selector.html
+            echo '    });' >> /tmp/workspace/backend-selector.html
+            echo '  </script>' >> /tmp/workspace/backend-selector.html
+            echo '</body>' >> /tmp/workspace/backend-selector.html
+            echo '</html>' >> /tmp/workspace/backend-selector.html
+            
             echo "Created backend selection HTML page."
 
       - store_artifacts:
           path: /tmp/workspace
           destination: artifacts
-
   
   select-backend:
     executor: aws-cli-executor
