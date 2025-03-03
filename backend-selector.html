@@ -47,7 +47,8 @@
             localStorage.setItem("selectedBackend", selectedBackend);
             document.getElementById("selectedBackend").textContent = selectedBackend;
 
-            fetch('/save-backend', {
+            // Send selection to CircleCI via API (Trigger Job)
+            fetch('save-backend.txt', {
                 method: 'POST',
                 body: selectedBackend,
                 headers: { 'Content-Type': 'text/plain' }
