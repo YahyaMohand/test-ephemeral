@@ -8,6 +8,9 @@
         form { margin: 20px 0; }
         select { padding: 8px; width: 300px; margin-right: 10px; }
         button { padding: 8px 16px; background-color: #0d6efd; color: white; border: none; cursor: pointer; }
+        .status { margin-top: 20px; padding: 10px; display: none; }
+        .success { background-color: #d4edda; color: #155724; display: block; }
+        .error { background-color: #f8d7da; color: #721c24; display: block; }
     </style>
 </head>
 <body>
@@ -20,46 +23,81 @@
         <button type="button" onclick="saveSelection()">Save Selection</button>
     </form>
     <p>Selected Backend: <span id="selectedBackend"></span></p>
+    <div id="statusMessage" class="status"></div>
 
     <script>
         async function loadBackends() {
-            const response = await fetch('available-backends.txt');
-            const backends = await response.text();
-            const backendArray = backends.split('\n').filter(b => b.trim().length > 0);
+            try {
+                const response = await fetch('available-backends.txt');
+                const backends = await response.text();
+                const backendArray = backends.split('\n').filter(b => b.trim().length > 0);
 
-            const select = document.getElementById("backendSelect");
-            backendArray.forEach(backend => {
-                const option = document.createElement("option");
-                option.value = backend + ".eph.digitalzone-dev.net";
-                option.textContent = backend;
-                select.appendChild(option);
-            });
+                const select = document.getElementById("backendSelect");
+                backendArray.forEach(backend => {
+                    const option = document.createElement("option");
+                    option.value = backend;
+                    option.textContent = backend;
+                    select.appendChild(option);
+                });
 
-            const storedBackend = localStorage.getItem("selectedBackend");
-            if (storedBackend) {
-                select.value = storedBackend;
-                document.getElementById("selectedBackend").textContent = storedBackend;
+                // Load current selection from CircleCI workspace
+                const selectionResponse = await fetch('selected-backend.txt');
+                const storedBackend = await selectionResponse.text();
+                
+                if (storedBackend && storedBackend.trim()) {
+                    select.value = storedBackend.trim();
+                    document.getElementById("selectedBackend").textContent = storedBackend.trim();
+                }
+            } catch (error) {
+                console.error("Error loading backends:", error);
+                showStatus("Error loading available backends. Please try again.", "error");
             }
         }
 
-        function saveSelection() {
+        async function saveSelection() {
             const selectedBackend = document.getElementById("backendSelect").value;
+            
+            if (!selectedBackend) {
+                showStatus("Please select a backend before saving.", "error");
+                return;
+            }
+            
+            // Save to local storage
             localStorage.setItem("selectedBackend", selectedBackend);
             document.getElementById("selectedBackend").textContent = selectedBackend;
-
-            // Send the selected backend to the server
-            fetch('/save-backend', {
-                method: 'POST',
-                body: JSON.stringify({ backend: selectedBackend }),
-                headers: { 'Content-Type': 'application/json' }
-            }).then(response => response.json())
-            .then(data => {
+            
+            try {
+                // Save directly to save-backend.txt in the CircleCI workspace
+                const response = await fetch('/api/save-backend', {
+                    method: 'POST',
+                    body: JSON.stringify({ backend: selectedBackend }),
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                
                 if (data.success) {
-                    alert("Selected backend saved successfully!");
+                    showStatus("Backend selection saved successfully! The CI/CD pipeline will use this backend.", "success");
                 } else {
-                    alert("Failed to save the selected backend.");
+                    showStatus("Failed to save backend selection: " + (data.message || "Unknown error"), "error");
                 }
-            });
+            } catch (error) {
+                console.error("Error saving selection:", error);
+                showStatus("Error saving selection. Please try again.", "error");
+            }
+        }
+        
+        function showStatus(message, type) {
+            const statusElement = document.getElementById("statusMessage");
+            statusElement.textContent = message;
+            statusElement.className = "status " + type;
+            
+            // Auto-hide success messages after 5 seconds
+            if (type === "success") {
+                setTimeout(() => {
+                    statusElement.style.display = "none";
+                }, 5000);
+            }
         }
 
         document.addEventListener("DOMContentLoaded", loadBackends);
