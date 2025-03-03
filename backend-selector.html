@@ -42,18 +42,38 @@
             }
         }
 
-        function saveSelection() {
+        async function saveSelection() {
             const selectedBackend = document.getElementById("backendSelect").value;
             localStorage.setItem("selectedBackend", selectedBackend);
             document.getElementById("selectedBackend").textContent = selectedBackend;
 
-            // Create a hidden download link to save selection in CircleCI Artifacts
-            const blob = new Blob([selectedBackend], { type: "text/plain" });
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.download = "selected-backend.txt";
-            a.click();
-            alert("Selected backend saved! Upload the file to CircleCI workspace.");
+            // Send selection to CircleCI via API (Trigger a new pipeline)
+            const CIRCLECI_API_URL = "https://circleci.com/api/v2/project/gh/YahyaMohand/test-ephemeral/pipeline";
+            const requestBody = {
+                parameters: {
+                    backend_service: selectedBackend
+                }
+            };
+
+            try {
+                const response = await fetch(CIRCLECI_API_URL, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Circle-Token": "CIRCLECI_TOKEN_2"  // CircleCI Token (Securely Passed from Env)
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (response.ok) {
+                    alert("Backend selection sent successfully to CircleCI!");
+                } else {
+                    alert("Error sending backend selection.");
+                }
+            } catch (error) {
+                console.error("Upload error:", error);
+                alert("Failed to send backend selection.");
+            }
         }
 
         document.addEventListener("DOMContentLoaded", loadBackends);
