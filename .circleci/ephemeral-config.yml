@@ -289,6 +289,9 @@ jobs:
       - attach_workspace:
           at: /tmp/workspace
       - run:
+            name: Install jq
+            command: yum install -y tar gzip jq
+      - run:
           name: Set selected backend
           command: |
             # Use the selected backend from parameter
