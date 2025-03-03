@@ -266,6 +266,16 @@ jobs:
             DEFAULT_BACKEND="<< pipeline.parameters.backend_service >>"
             echo "$DEFAULT_BACKEND" > /tmp/workspace/selected-backend.txt
 
+      - store_artifacts:
+          path: /tmp/workspace
+          destination: artifacts
+      - persist_to_workspace:
+          root: /tmp/workspace
+          paths:
+            - available-backends.txt
+            - backend-selector.html
+            - selected-backend.txt
+
   
   select-backend:
     executor: aws-cli-executor
