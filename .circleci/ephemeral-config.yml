@@ -244,9 +244,8 @@ jobs:
   fetch-backends:
     executor: aws-cli-executor
     steps:
-      - checkout
       - run:
-          name: Install required packages
+          name: Install jq
           command: yum install -y tar gzip jq
       - run:
           name: Fetch available backends and generate HTML file
@@ -277,7 +276,7 @@ jobs:
             echo '</select><button type="button" onclick="saveSelection()">Save Selection</button></form>' >> /tmp/workspace/backend-selector.html
             echo '<p>Selected Backend: <span id="selectedBackend"></span></p>' >> /tmp/workspace/backend-selector.html
 
-            # JavaScript to store selection in a file
+            # JavaScript to send selection back to CircleCI
             echo '<script>function saveSelection() { var selectedBackend = document.getElementById("backendSelect").value; localStorage.setItem("selectedBackend", selectedBackend); document.getElementById("selectedBackend").textContent = selectedBackend; fetch("/save-backend", { method: "POST", body: selectedBackend, headers: { "Content-Type": "text/plain" }}); } document.addEventListener("DOMContentLoaded", function() { var storedBackend = localStorage.getItem("selectedBackend"); if (storedBackend) { document.getElementById("backendSelect").value = storedBackend; document.getElementById("selectedBackend").textContent = storedBackend; }});</script>' >> /tmp/workspace/backend-selector.html
             echo '</body></html>' >> /tmp/workspace/backend-selector.html
 
@@ -292,13 +291,11 @@ jobs:
             - available-backends.txt
             - selected-backend.txt
             - backend-selector.html
+
   
   select-backend:
     executor: aws-cli-executor
     steps:
-      - run:
-          name: Install required packages
-          command: yum install -y tar gzip jq
       - attach_workspace:
           at: /tmp/workspace
       - run:
