@@ -280,10 +280,8 @@ jobs:
         - run:
             name: Read selected backend from S3
             command: |
-              S3_BUCKET_URL="https://selected-backend-ephemeral-env.s3.me-south-1.amazonaws.com/selected-backend.txt"
-
               # Download selected backend from S3
-              curl -s -o /tmp/workspace/selected-backend.txt $S3_BUCKET_URL
+              curl -s -o /tmp/workspace/selected-backend.txt https://selected-backend-ephemeral-env.s3.me-south-1.amazonaws.com/selected-backend.txt
 
               # Verify if the file was downloaded
               if [ -f "/tmp/workspace/selected-backend.txt" ]; then
