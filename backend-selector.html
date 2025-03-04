@@ -15,45 +15,64 @@
     <form id="backendForm">
         <label for="backendSelect">Choose Backend:</label>
         <select id="backendSelect">
-            <!-- Options will be populated dynamically -->
+            <!-- Options will be dynamically populated -->
         </select>
         <button type="button" onclick="saveSelection()">Save Selection</button>
     </form>
     <p>Selected Backend: <span id="selectedBackend"></span></p>
 
     <script>
+        const S3_BUCKET_URL = "https://selected-backend-ephemeral-env.s3.me-south-1.amazonaws.com/selected-backend.txt";
+        const BACKENDS_LIST_URL = "https://selected-backend-ephemeral-env.s3.me-south-1.amazonaws.com/available-backends.txt";
+
         async function loadBackends() {
-            const response = await fetch('available-backends.txt');
-            const backends = await response.text();
-            const backendArray = backends.split('\n').filter(b => b.trim().length > 0);
+            try {
+                const response = await fetch(BACKENDS_LIST_URL);
+                const backends = await response.text();
+                const backendArray = backends.split('\n').filter(b => b.trim().length > 0);
 
-            const select = document.getElementById("backendSelect");
-            backendArray.forEach(backend => {
-                const option = document.createElement("option");
-                option.value = backend + ".eph.digitalzone-dev.net";
-                option.textContent = backend;
-                select.appendChild(option);
-            });
+                const select = document.getElementById("backendSelect");
+                select.innerHTML = ""; // Clear previous options
+                backendArray.forEach(backend => {
+                    const option = document.createElement("option");
+                    option.value = backend + ".eph.digitalzone-dev.net";
+                    option.textContent = backend;
+                    select.appendChild(option);
+                });
 
-            const storedBackend = localStorage.getItem("selectedBackend");
-            if (storedBackend) {
-                select.value = storedBackend;
-                document.getElementById("selectedBackend").textContent = storedBackend;
+                const storedBackend = localStorage.getItem("selectedBackend");
+                if (storedBackend) {
+                    select.value = storedBackend;
+                    document.getElementById("selectedBackend").textContent = storedBackend;
+                }
+            } catch (error) {
+                console.error("Failed to load backends:", error);
             }
         }
 
-        function saveSelection() {
+        async function saveSelection() {
             const selectedBackend = document.getElementById("backendSelect").value;
             localStorage.setItem("selectedBackend", selectedBackend);
             document.getElementById("selectedBackend").textContent = selectedBackend;
 
-            // Create a hidden download link to save selection in CircleCI Artifacts
-            const blob = new Blob([selectedBackend], { type: "text/plain" });
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.download = "selected-backend.txt";
-            a.click();
-            alert("Selected backend saved! Upload the file to CircleCI workspace.");
+            try {
+                const response = await fetch(S3_BUCKET_URL, {
+                    method: "PUT",
+                    body: selectedBackend,
+                    headers: {
+                        "Content-Type": "text/plain"
+                    }
+                });
+
+                if (response.ok) {
+                    alert("Backend selection saved to S3!");
+                } else {
+                    alert("Error uploading backend selection to S3.");
+                }
+            } catch (error) {
+                console.error("Upload error:", error);
+                alert("Failed to upload backend selection.");
+            }
         }
 
         document.addEventListener("DOMContentLoaded", loadBackends);
