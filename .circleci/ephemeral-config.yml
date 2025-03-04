@@ -271,51 +271,79 @@ jobs:
             - available-backends.txt
             - backend-selector.html
 
+  # capture-selection:
+  #     executor: aws-cli-executor
+  #     steps:
+  #       - run:
+  #           name: Install required packages
+  #           command: yum install -y tar gzip jq curl
+  #       - attach_workspace:
+  #           at: /tmp/workspace
+  #       - run:
+  #           name: Read selected backend from S3
+  #           command: |
+  #             # Download selected backend from S3
+  #             curl -s -f -o /tmp/workspace/selected-backend.txt https://selected-backend-ephemeral-env.s3.me-south-1.amazonaws.com/selected-backend.txt
+  #             # Verify if the file was downloaded
+  #             if [ -f "/tmp/workspace/selected-backend.txt" ]; then
+  #               SELECTED_BACKEND=$(cat /tmp/workspace/selected-backend.txt)
+  #               echo "Selected backend: $SELECTED_BACKEND"
+  #             else
+  #               SELECTED_BACKEND="<< pipeline.parameters.backend_service >>"
+  #               echo "No selection found in S3, using default: $SELECTED_BACKEND"
+  #               echo "$SELECTED_BACKEND" > /tmp/workspace/selected-backend.txt
+  #             fi
+  #       - persist_to_workspace:
+  #           root: /tmp/workspace
+  #           paths:
+  #             - selected-backend.txt
+
   capture-selection:
-      executor: aws-cli-executor
-      steps:
-        - run:
-            name: Install required packages
-            command: yum install -y tar gzip jq curl
-        - attach_workspace:
+    executor: aws-cli-executor
+    steps:
+      - run:
+          name: Install required packages
+          command: yum install -y tar gzip jq curl
+      - attach_workspace:
             at: /tmp/workspace
-        - run:
-            name: Read selected backend from S3 and fix format
-            command: |
-              S3_BUCKET_URL="https://selected-backend-ephemeral-env.s3.me-south-1.amazonaws.com/selected-backend.txt"
+      - run:
+          name: Read selected backend from S3 and fix format
+          command: |
+            S3_BUCKET_URL="https://selected-backend-ephemeral-env.s3.me-south-1.amazonaws.com/selected-backend.txt"
 
-              # Download selected backend from S3
-              curl -s -f -o /tmp/workspace/selected-backend.txt $S3_BUCKET_URL
+            # Download selected backend from S3
+            curl -s -f -o /tmp/workspace/selected-backend.txt $S3_BUCKET_URL
 
-              # Debug: Check if the file is downloaded properly
-              echo "📂 Checking file contents:"
-              ls -lah /tmp/workspace/selected-backend.txt  # Check if file exists
-              cat /tmp/workspace/selected-backend.txt  # Print the contents
+            # Debug: Check if the file is downloaded properly
+            echo "📂 Checking file contents:"
+            ls -lah /tmp/workspace/selected-backend.txt  # Check if file exists
+            cat /tmp/workspace/selected-backend.txt  # Print the contents
 
-              # Read the downloaded backend
-              if [ -s "/tmp/workspace/selected-backend.txt" ]; then
-                SELECTED_BACKEND=$(cat /tmp/workspace/selected-backend.txt)
+            # Read the downloaded backend
+            if [ -s "/tmp/workspace/selected-backend.txt" ]; then
+              SELECTED_BACKEND=$(cat /tmp/workspace/selected-backend.txt)
 
-                # Fix the format if needed
-                if [[ $SELECTED_BACKEND =~ ^be-([0-9]+)\.eph\.digitalzone-dev\.net$ ]]; then
-                  FORMATTED_BACKEND="be-pr-${BASH_REMATCH[1]}.eph.digitalzone-dev.net"
-                  echo "🛠 Fixing format: $SELECTED_BACKEND → $FORMATTED_BACKEND"
-                  echo "$FORMATTED_BACKEND" > /tmp/workspace/selected-backend.txt
-                else
-                  echo "✅ Backend format is correct: $SELECTED_BACKEND"
-                fi
+              # Fix the format if needed
+              if [[ $SELECTED_BACKEND =~ ^be-([0-9]+)\.eph\.digitalzone-dev\.net$ ]]; then
+                FORMATTED_BACKEND="be-pr-${BASH_REMATCH[1]}.eph.digitalzone-dev.net"
+                echo "🛠 Fixing format: $SELECTED_BACKEND → $FORMATTED_BACKEND"
+                echo "$FORMATTED_BACKEND" > /tmp/workspace/selected-backend.txt
               else
-                # If no selection found, fallback to the default backend
-                SELECTED_BACKEND="<< pipeline.parameters.backend_service >>"
-                echo "❌ No selection found in S3, using default: $SELECTED_BACKEND"
-                echo "$SELECTED_BACKEND" > /tmp/workspace/selected-backend.txt
+                echo "✅ Backend format is correct: $SELECTED_BACKEND"
               fi
+            else
+              # If no selection found, fallback to the default backend
+              SELECTED_BACKEND="<< pipeline.parameters.backend_service >>"
+              echo "❌ No selection found in S3, using default: $SELECTED_BACKEND"
+              echo "$SELECTED_BACKEND" > /tmp/workspace/selected-backend.txt
+            fi
 
-              echo "🔹 Final selected backend: $(cat /tmp/workspace/selected-backend.txt)"
-        - persist_to_workspace:
-            root: /tmp/workspace
-            paths:
-              - selected-backend.txt
+            echo "🔹 Final selected backend: $(cat /tmp/workspace/selected-backend.txt)"
+      - persist_to_workspace:
+          root: /tmp/workspace
+          paths:
+            - selected-backend.txt
+
 
   plan:
     executor: terraform-executor
