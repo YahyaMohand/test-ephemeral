@@ -247,21 +247,29 @@ jobs:
       - checkout
       - run:
           name: Install required packages
-          command: yum install -y tar gzip jq aws-cli
+          command: yum install -y tar gzip jq
       - run:
           name: Fetch available backends
           command: |
             mkdir -p /tmp/workspace
             
+            # Extract branch name or PR number from CircleCI variables
+            BRANCH_NAME="<< pipeline.git.branch >>"
+            PR_NUMBER="<< pipeline.git.pull_request >>"
+            
+            # Determine backend service name convention (assuming they follow be-{branch} pattern)
+            EXPECTED_BACKEND="be-${BRANCH_NAME}"
+            
             # Fetch available ephemeral backends from AWS ECS
             BACKEND_SERVICES=$(aws ecs list-services --cluster dz-eph-ephemeral-environment | jq -r '.serviceArns[] | select(contains("be-")) | split("/") | last')
 
-            # Save backends to a file
-            echo "$BACKEND_SERVICES" > /tmp/workspace/available-backends.txt
+            # Match frontend to its corresponding backend
+            MATCHED_BACKEND=$(echo "$BACKEND_SERVICES" | grep -m1 "$EXPECTED_BACKEND" || echo "default-backend")
 
-            # Inject AWS Credentials into the frontend dynamically
-            cp backend-selector.html /tmp/workspace/
-            sed -i "s/AWS_REGION/${AWS_REGION}/g" /tmp/workspace/backend-selector.html
+            echo "Matched backend: $MATCHED_BACKEND"
+
+            # Save matched backend
+            echo "$MATCHED_BACKEND" > /tmp/workspace/selected-backend.txt
 
       - store_artifacts:
           path: /tmp/workspace
@@ -269,18 +277,31 @@ jobs:
       - persist_to_workspace:
           root: /tmp/workspace
           paths:
-            - available-backends.txt
-            - backend-selector.html
+            - selected-backend.txt
 
+
+
+  
   capture-selection:
     executor: aws-cli-executor
     steps:
       - run:
-          name: Retrieve Selected Backend from AWS SSM (KMS Encrypted)
+          name: Install required packages
+          command: yum install -y tar gzip jq
+      - attach_workspace:
+          at: /tmp/workspace
+      - run:
+          name: Read selected backend from saved file
           command: |
-            SELECTED_BACKEND=$(aws ssm get-parameter --name "/selected-backend" --with-decryption --query "Parameter.Value" --output text)
-            echo "Backend selection detected: $SELECTED_BACKEND"
-            echo "export SELECTED_BACKEND=$SELECTED_BACKEND" >> $BASH_ENV
+            if [ -f "/tmp/workspace/save-backend.txt" ]; then
+              SELECTED_BACKEND=$(cat /tmp/workspace/save-backend.txt)
+              echo "Selected backend updated to: $SELECTED_BACKEND"
+              echo "$SELECTED_BACKEND" > /tmp/workspace/selected-backend.txt
+            else
+              SELECTED_BACKEND="<< pipeline.parameters.backend_service >>"
+              echo "No selection found, using default: $SELECTED_BACKEND"
+              echo "$SELECTED_BACKEND" > /tmp/workspace/selected-backend.txt
+            fi
       - persist_to_workspace:
           root: /tmp/workspace
           paths:
