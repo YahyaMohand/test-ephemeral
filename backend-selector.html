@@ -21,40 +21,12 @@
     </form>
     <p>Selected Backend: <span id="selectedBackend"></span></p>
 
-    <script type="module">
-        import AWS from "https://cdn.skypack.dev/aws-sdk";
-    
-        AWS.config.update({
-            region: "me-south-1"  // Change this to your AWS region
-        });
-    
-        const ssm = new AWS.SSM();
-    
-        async function saveSelection() {
-            const selectedBackend = document.getElementById("backendSelect").value;
-            localStorage.setItem("selectedBackend", selectedBackend);
-            document.getElementById("selectedBackend").textContent = selectedBackend;
-    
-            try {
-                await ssm.putParameter({
-                    Name: "/selected-backend",
-                    Value: selectedBackend,
-                    Type: "SecureString",  // Ensures encryption with default AWS KMS
-                    Overwrite: true
-                }).promise();
-    
-                alert("Selected backend saved to AWS SSM (KMS Encrypted)!");
-            } catch (error) {
-                console.error("Error saving to SSM:", error);
-                alert("Failed to save backend selection.");
-            }
-        }
-    
+    <script>
         async function loadBackends() {
             const response = await fetch('available-backends.txt');
             const backends = await response.text();
             const backendArray = backends.split('\n').filter(b => b.trim().length > 0);
-    
+
             const select = document.getElementById("backendSelect");
             backendArray.forEach(backend => {
                 const option = document.createElement("option");
@@ -62,19 +34,29 @@
                 option.textContent = backend;
                 select.appendChild(option);
             });
-    
-            try {
-                const result = await ssm.getParameter({ Name: "/selected-backend", WithDecryption: true }).promise();
-                const storedBackend = result.Parameter.Value;
+
+            const storedBackend = localStorage.getItem("selectedBackend");
+            if (storedBackend) {
                 select.value = storedBackend;
                 document.getElementById("selectedBackend").textContent = storedBackend;
-            } catch (error) {
-                console.warn("No previous backend selection found.");
             }
         }
-    
+
+        function saveSelection() {
+            const selectedBackend = document.getElementById("backendSelect").value;
+            localStorage.setItem("selectedBackend", selectedBackend);
+            document.getElementById("selectedBackend").textContent = selectedBackend;
+
+            // Create a hidden download link to save selection in CircleCI Artifacts
+            const blob = new Blob([selectedBackend], { type: "text/plain" });
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = "selected-backend.txt";
+            a.click();
+            alert("Selected backend saved! Upload the file to CircleCI workspace.");
+        }
+
         document.addEventListener("DOMContentLoaded", loadBackends);
     </script>
-    
 </body>
 </html>
