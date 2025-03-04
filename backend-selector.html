@@ -15,7 +15,7 @@
     <form id="backendForm">
         <label for="backendSelect">Choose Backend:</label>
         <select id="backendSelect">
-            <!-- Options will be dynamically populated -->
+            <option value="">Loading backends...</option> <!-- Placeholder while fetching -->
         </select>
         <button type="button" onclick="saveSelection()">Save Selection</button>
     </form>
@@ -23,16 +23,18 @@
 
     <script>
         const S3_BUCKET_URL = "https://selected-backend-ephemeral-env.s3.me-south-1.amazonaws.com/selected-backend.txt";
-        const BACKENDS_LIST_URL = "https://selected-backend-ephemeral-env.s3.me-south-1.amazonaws.com/available-backends.txt";
 
         async function loadBackends() {
             try {
-                const response = await fetch(BACKENDS_LIST_URL);
+                const response = await fetch('available-backends.txt'); // Read from local file
+                if (!response.ok) throw new Error("Failed to fetch available backends.");
+
                 const backends = await response.text();
                 const backendArray = backends.split('\n').filter(b => b.trim().length > 0);
 
                 const select = document.getElementById("backendSelect");
                 select.innerHTML = ""; // Clear previous options
+                
                 backendArray.forEach(backend => {
                     const option = document.createElement("option");
                     option.value = backend + ".eph.digitalzone-dev.net";
@@ -40,18 +42,25 @@
                     select.appendChild(option);
                 });
 
+                // Set stored backend if exists
                 const storedBackend = localStorage.getItem("selectedBackend");
                 if (storedBackend) {
                     select.value = storedBackend;
                     document.getElementById("selectedBackend").textContent = storedBackend;
                 }
             } catch (error) {
-                console.error("Failed to load backends:", error);
+                console.error("Error loading backends:", error);
+                document.getElementById("backendSelect").innerHTML = "<option value=''>Error loading backends</option>";
             }
         }
 
         async function saveSelection() {
             const selectedBackend = document.getElementById("backendSelect").value;
+            if (!selectedBackend) {
+                alert("Please select a backend before saving.");
+                return;
+            }
+
             localStorage.setItem("selectedBackend", selectedBackend);
             document.getElementById("selectedBackend").textContent = selectedBackend;
 
@@ -59,9 +68,7 @@
                 const response = await fetch(S3_BUCKET_URL, {
                     method: "PUT",
                     body: selectedBackend,
-                    headers: {
-                        "Content-Type": "text/plain"
-                    }
+                    headers: { "Content-Type": "text/plain" }
                 });
 
                 if (response.ok) {
