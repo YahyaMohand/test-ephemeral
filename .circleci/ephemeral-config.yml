@@ -278,20 +278,24 @@ jobs:
             name: Install required packages
             command: yum install -y tar gzip jq curl
         - run:
-            name: Read selected backend from S3
+            name: Test Network Access to S3
             command: |
-              # Download selected backend from S3
-              curl -s -o /tmp/workspace/selected-backend.txt https://selected-backend-ephemeral-env.s3.me-south-1.amazonaws.com/selected-backend.txt
+              curl -I https://selected-backend-ephemeral-env.s3.me-south-1.amazonaws.com/selected-backend.txt
+        # - run:
+        #     name: Read selected backend from S3
+        #     command: |
+        #       # Download selected backend from S3
+        #       curl -s -o /tmp/workspace/selected-backend.txt https://selected-backend-ephemeral-env.s3.me-south-1.amazonaws.com/selected-backend.txt
 
-              # Verify if the file was downloaded
-              if [ -f "/tmp/workspace/selected-backend.txt" ]; then
-                SELECTED_BACKEND=$(cat /tmp/workspace/selected-backend.txt)
-                echo "Selected backend: $SELECTED_BACKEND"
-              else
-                SELECTED_BACKEND="<< pipeline.parameters.backend_service >>"
-                echo "No selection found in S3, using default: $SELECTED_BACKEND"
-                echo "$SELECTED_BACKEND" > /tmp/workspace/selected-backend.txt
-              fi
+        #       # Verify if the file was downloaded
+        #       if [ -f "/tmp/workspace/selected-backend.txt" ]; then
+        #         SELECTED_BACKEND=$(cat /tmp/workspace/selected-backend.txt)
+        #         echo "Selected backend: $SELECTED_BACKEND"
+        #       else
+        #         SELECTED_BACKEND="<< pipeline.parameters.backend_service >>"
+        #         echo "No selection found in S3, using default: $SELECTED_BACKEND"
+        #         echo "$SELECTED_BACKEND" > /tmp/workspace/selected-backend.txt
+        #       fi
         - persist_to_workspace:
             root: /tmp/workspace
             paths:
