@@ -247,36 +247,28 @@ jobs:
       - checkout
       - run:
           name: Install required packages
-          command: yum install -y tar gzip jq
+          command: yum install -y tar gzip jq curl
       - run:
           name: Fetch available backends
           command: |
             mkdir -p /tmp/workspace
-            
+
             # Fetch available ephemeral backends from AWS ECS
             BACKEND_SERVICES=$(aws ecs list-services --cluster dz-eph-ephemeral-environment | jq -r '.serviceArns[] | select(contains("be-")) | split("/") | last')
 
-            # Save backends to a file
+            # Save backends to a file for frontend selection
             echo "$BACKEND_SERVICES" > /tmp/workspace/available-backends.txt
 
-            # Copy the HTML file from the repo to CircleCI workspace
-            cp backend-selector.html /tmp/workspace/
-
-            # Use default backend if no selection is found
-            DEFAULT_BACKEND="<< pipeline.parameters.backend_service >>"
-            echo "$DEFAULT_BACKEND" > /tmp/workspace/selected-backend.txt
+            # Upload available backends list to S3
+            aws s3 cp /tmp/workspace/available-backends.txt s3://selected-backend-ephemeral-env/available-backends.txt --acl public-read
 
       - store_artifacts:
-      
           path: /tmp/workspace
           destination: artifacts
       - persist_to_workspace:
           root: /tmp/workspace
           paths:
             - available-backends.txt
-            - backend-selector.html
-            - selected-backend.txt
-
 
   
   capture-selection:
