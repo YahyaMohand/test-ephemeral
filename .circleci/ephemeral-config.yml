@@ -351,6 +351,10 @@ jobs:
       - checkout
       - setup_ephemeral_repo
       - run:
+          name: Install GitHub CLI
+          command: |
+            apk add --no-cache curl
+      - run:
           name: Terraform Init (DynamoDb Only)
           command: |
             cd ephemeral/terraform/stages/ephemeral
