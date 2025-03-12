@@ -250,7 +250,7 @@ jobs:
             mkdir -p /tmp/workspace
 
             # Fetch available ephemeral backends from AWS ECS
-            BACKEND_SERVICES=$(aws ecs list-services --cluster dz-eph-ephemeral-environment | jq -r '.serviceArns[] | select(contains("be-")) | split("/") | last')
+            BACKEND_SERVICES=$(aws ecs list-services --cluster dz-ephemeral-environment | jq -r '.serviceArns[] | select(contains("be-")) | split("/") | last')
 
             # Save backends to a file for frontend selection
             echo "$BACKEND_SERVICES" > /tmp/workspace/available-backends.txt
@@ -361,7 +361,7 @@ jobs:
       - terraform_init
       - terraform_plan
       - persist_to_workspace:
-          root: ~/project/ephemeral/terraform/21_dz_ephemeral_apps
+          root: ~/project/ephemeral/terraform/stages/21_dz_ephemeral_apps
           paths:
             - dz_be/.terraform
             - dz_be/tfplan
