@@ -110,7 +110,6 @@ commands:
   terraform_init:
     description: "Initialize Terraform"
     steps:
-      - setup_ephemeral_repo
       - run:
           name: "Terraform Init"
           command: |
@@ -145,7 +144,7 @@ commands:
       - run:
           name: "Terraform Destroy"
           command: |
-            cd ephemeral/terraform/stages/ephemeral
+            cd ephemeral/terraform/stages/21_dz_ephemeral_apps/dz_be
             terraform destroy -auto-approve \
               -var-file="terraform.ephemeral.tfvars" \
               -var="pr_number=<< pipeline.parameters.pr_number >>" \
