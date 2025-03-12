@@ -385,10 +385,10 @@ jobs:
     steps:
       - checkout
       - attach_workspace:
-          at: ~/project/ephemeral/terraform/stages/21_dz_ephemeral_apps
+          at: ~/project/dz_be
       # - decrypt_env_and_upload
-      # - terraform_init
-      # - terraform_plan
+      - terraform_init
+      - terraform_plan
       - terraform_apply
 
   cleanup_schema:
