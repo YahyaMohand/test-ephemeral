@@ -135,8 +135,7 @@ commands:
       - run:
           name: "Terraform Apply"
           command: |
-            ls
-            # cd ephemeral/terraform/stages/21_dz_ephemeral_apps/dz_be
+            cd ephemeral/terraform/stages/21_dz_ephemeral_apps/dz_be
             terraform apply -auto-approve tfplan
 
   terraform_destroy:
@@ -358,9 +357,6 @@ jobs:
     #       command: |
     #         cd ephemeral/terraform/stages/ephemeral
     #         terraform apply -var-file="terraform.ephemeral.tfvars" -var="pr_number=<< pipeline.parameters.pr_number >>" -target=aws_dynamodb_table.locks -auto-approve -lock=false
-      - run:
-          command: |
-              ls -la
       - terraform_init
       - terraform_plan
       - persist_to_workspace:
@@ -370,9 +366,6 @@ jobs:
             - dz_be/tfplan
             - dz_be/*.tf
             - dz_be/*.tfvars
-      - run:
-          command: |
-              ls -la
 
   create_schema:
     executor: node-executor
