@@ -502,26 +502,26 @@ workflows:
           requires:
             - create_schema
           context: aws-creds
-      - hold_for_deploy_to_ecs:  
-          type: approval
-          requires:
-            - apply
-          # filters:
-          #   branches:
-          #     only: fix/add-ephe-env-in-steps
-      - build_app:
-          name: build and push app (ephemeral)
-          context: aws-creds  
-          requires:
-            - hold_for_deploy_to_ecs
-          # filters:
-          #   branches:
-          #     only: fix/add-ephe-env-in-steps
-      - deploy_to_ecs:
-          name: deploy app (ephemeral)
-          context: aws-creds
-          requires:
-            - build and push app (ephemeral)
+      # - hold_for_deploy_to_ecs:  
+      #     type: approval
+      #     requires:
+      #       - apply
+      #     # filters:
+      #     #   branches:
+      #     #     only: fix/add-ephe-env-in-steps
+      # - build_app:
+      #     name: build and push app (ephemeral)
+      #     context: aws-creds  
+      #     requires:
+      #       - hold_for_deploy_to_ecs
+      #     # filters:
+      #     #   branches:
+      #     #     only: fix/add-ephe-env-in-steps
+      # - deploy_to_ecs:
+      #     name: deploy app (ephemeral)
+      #     context: aws-creds
+      #     requires:
+      #       - build and push app (ephemeral)
       - hold_for_cleanup:
           type: approval
           requires:
