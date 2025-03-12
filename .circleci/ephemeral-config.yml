@@ -358,6 +358,9 @@ jobs:
     #       command: |
     #         cd ephemeral/terraform/stages/ephemeral
     #         terraform apply -var-file="terraform.ephemeral.tfvars" -var="pr_number=<< pipeline.parameters.pr_number >>" -target=aws_dynamodb_table.locks -auto-approve -lock=false
+      - run:
+          command: |
+              ls -la
       - terraform_init
       - terraform_plan
       - persist_to_workspace:
@@ -367,6 +370,9 @@ jobs:
             - dz_be/tfplan
             - dz_be/*.tf
             - dz_be/*.tfvars
+      - run:
+          command: |
+              ls -la
 
   create_schema:
     executor: node-executor
@@ -379,7 +385,7 @@ jobs:
     steps:
       - checkout
       - attach_workspace:
-          at: ~/project/dz_be
+          at: ~/project/ephemeral/terraform/stages/21_dz_ephemeral_apps
       # - decrypt_env_and_upload
       # - terraform_init
       # - terraform_plan
