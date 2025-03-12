@@ -377,6 +377,7 @@ jobs:
     executor: terraform-executor
     steps:
       - checkout
+      - setup_ephemeral_repo
       - attach_workspace:
           at: ~/project/dz_be
       # - decrypt_env_and_upload
@@ -394,6 +395,7 @@ jobs:
     executor: terraform-executor
     steps:
       - checkout
+      - setup_ephemeral_repo
       - attach_workspace:
           at: terraform
       - terraform_init
