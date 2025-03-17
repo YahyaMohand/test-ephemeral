@@ -134,20 +134,15 @@ commands:
           command: |
             cd ephemeral/terraform/stages/21_dz_ephemeral_apps/dz_fe
 
-            if [ -z "<< pipeline.parameters.pr_number >>" ]; then
-              SHORT_COMMIT=$(echo "<< pipeline.parameters.commit_sha >>" | cut -c1-7)
-              PR_NUMBER=""
-              COMMIT_SHA="commit-${SHORT_COMMIT}"
-            else
-              PR_NUMBER="pr-<< pipeline.parameters.pr_number >>"
-              COMMIT_SHA=""
-            fi
+            PR_NUMBER="<< pipeline.parameters.pr_number >>"
+            COMMIT_SHA="<< pipeline.parameters.commit_sha >>"
 
             terraform plan \
               -var-file="terraform.ephemeral.tfvars" \
               -var="pr_number=${PR_NUMBER}" \
               -var="commit_sha=${COMMIT_SHA}" \
               -out=tfplan
+
 
   terraform_apply:
     description: "Run Terraform Apply"
@@ -166,19 +161,14 @@ commands:
           command: |
             cd ephemeral/terraform/stages/21_dz_ephemeral_apps/dz_fe
 
-            if [ -z "<< pipeline.parameters.pr_number >>" ]; then
-              SHORT_COMMIT=$(echo "<< pipeline.parameters.commit_sha >>" | cut -c1-7)
-              PR_NUMBER=""
-              COMMIT_SHA="commit-${SHORT_COMMIT}"
-            else
-              PR_NUMBER="pr-<< pipeline.parameters.pr_number >>"
-              COMMIT_SHA=""
-            fi
+            PR_NUMBER="<< pipeline.parameters.pr_number >>"
+            COMMIT_SHA="<< pipeline.parameters.commit_sha >>"
 
             terraform destroy -auto-approve \
               -var-file="terraform.ephemeral.tfvars" \
               -var="pr_number=${PR_NUMBER}" \
               -var="commit_sha=${COMMIT_SHA}"
+
 
 
   setup_db_tools:
