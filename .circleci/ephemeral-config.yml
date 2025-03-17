@@ -8,9 +8,8 @@ orbs:
 
 parameters:
   backend_service:
-    type: enum
-    enum: ["be-pr-1221.eph.digitalzone-dev.net", "be-pr-1222.eph.digitalzone-dev.net", "be-pr-1223.eph.digitalzone-dev.net"]
-    default: "be-pr-1221.eph.digitalzone-dev.net"
+    type: string
+    default: "be-pr-default.eph.digitalzone-dev.net"
     description: "Select the ephemeral backend service for the frontend"  
   pr_number:
       type: string
@@ -45,7 +44,7 @@ commands:
           name: "Ensure fresh ephemeral repo"
           command: |
             rm -rf ephemeral
-            git clone https://YahyaMohCloud:${GITHUB_TOKEN_DZ}@github.com/DigitalZoneApp/platform-infra.git -b inf-200-ephemeral-environments-research-and-breaking-out-tasks ephemeral
+            git clone https://YahyaMohCloud:${GITHUB_TOKEN_DZ}@github.com/DigitalZoneApp/platform-infra.git -b inf-270-ephemeral-env-modules-refactor ephemeral
       - run:
           name: "ls Ephemeral Repo"
           command: ls -la ephemeral/terraform
@@ -111,14 +110,12 @@ commands:
   terraform_init:
     description: "Initialize Terraform"
     steps:
-      - setup_ephemeral_repo
       - run:
           name: "Terraform Init"
           command: |
-            cd ephemeral/terraform/stages/ephemeral
+            cd ephemeral/terraform/stages/21_dz_ephemeral_apps/dz_fe
             terraform init \
-              -backend-config="key=ephemeral-environments/pr-<< pipeline.parameters.pr_number >>/terraform.tfstate" \
-              -backend-config="dynamodb_table=dz-eph-pr-<< pipeline.parameters.pr_number >>-locks"
+              -backend-config="key=ephemeral-environments/pr-<< pipeline.parameters.pr_number >>/terraform.tfstate"
 
   terraform_plan:
     description: "Run Terraform Plan"
@@ -126,11 +123,10 @@ commands:
       - run:
           name: "Terraform Plan"
           command: |
-            cd ephemeral/terraform/stages/ephemeral
+            cd ephemeral/terraform/stages/21_dz_ephemeral_apps/dz_fe
             terraform plan \
               -var-file="terraform.ephemeral.tfvars" \
               -var="pr_number=<< pipeline.parameters.pr_number >>" \
-              -var="is_backend=true" \
               -out=tfplan
 
   terraform_apply:
@@ -139,7 +135,7 @@ commands:
       - run:
           name: "Terraform Apply"
           command: |
-            cd ephemeral/terraform/stages/ephemeral
+            cd ephemeral/terraform/stages/21_dz_ephemeral_apps/dz_fe
             terraform apply -auto-approve tfplan
 
   terraform_destroy:
@@ -148,12 +144,10 @@ commands:
       - run:
           name: "Terraform Destroy"
           command: |
-            cd ephemeral/terraform/stages/ephemeral
+            cd ephemeral/terraform/stages/21_dz_ephemeral_apps/dz_fe
             terraform destroy -auto-approve \
               -var-file="terraform.ephemeral.tfvars" \
-              -var="pr_number=<< pipeline.parameters.pr_number >>" \
-              -var="is_backend=true" \
-              -lock=false
+              -var="pr_number=<< pipeline.parameters.pr_number >>"
 
   setup_db_tools:
     description: "Install AWS CLI, SSM, and PostgreSQL Client"
@@ -242,33 +236,136 @@ commands:
 
 
 jobs:
+  fetch-backends:
+    executor: aws-cli-executor
+    steps:
+      - checkout
+      - run:
+          name: Install required packages
+          command: yum install -y tar gzip jq curl
+      - run:
+          name: Fetch available backends
+          command: |
+            mkdir -p /tmp/workspace
+
+            # Fetch available ephemeral backends from AWS ECS
+            BACKEND_SERVICES=$(aws ecs list-services --cluster dz-ephemeral-environment | jq -r '.serviceArns[] | select(contains("be-")) | split("/") | last')
+
+            # Save backends to a file for frontend selection
+            echo "$BACKEND_SERVICES" > /tmp/workspace/available-backends.txt
+
+            # Copy the HTML file from the repo to CircleCI workspace
+            cp ephemeral-backend-switcher/backend-selector.html /tmp/workspace/
+            
+      - store_artifacts:
+          path: /tmp/workspace
+          destination: artifacts
+      - persist_to_workspace:
+          root: /tmp/workspace
+          paths:
+            - available-backends.txt
+            - backend-selector.html
+
+  # capture-selection:
+  #     executor: aws-cli-executor
+  #     steps:
+  #       - run:
+  #           name: Install required packages
+  #           command: yum install -y tar gzip jq curl
+  #       - attach_workspace:
+  #           at: /tmp/workspace
+  #       - run:
+  #           name: Read selected backend from S3
+  #           command: |
+  #             # Download selected backend from S3
+  #             curl -s -f -o /tmp/workspace/selected-backend.txt https://selected-backend-ephemeral-env.s3.me-south-1.amazonaws.com/selected-backend.txt
+  #             # Verify if the file was downloaded
+  #             if [ -f "/tmp/workspace/selected-backend.txt" ]; then
+  #               SELECTED_BACKEND=$(cat /tmp/workspace/selected-backend.txt)
+  #               echo "Selected backend: $SELECTED_BACKEND"
+  #             else
+  #               SELECTED_BACKEND="<< pipeline.parameters.backend_service >>"
+  #               echo "No selection found in S3, using default: $SELECTED_BACKEND"
+  #               echo "$SELECTED_BACKEND" > /tmp/workspace/selected-backend.txt
+  #             fi
+  #       - persist_to_workspace:
+  #           root: /tmp/workspace
+  #           paths:
+  #             - selected-backend.txt
+
+  capture-selection:
+    executor: aws-cli-executor
+    steps:
+      - run:
+          name: Install required packages
+          command: yum install -y tar gzip jq curl
+      - attach_workspace:
+            at: /tmp/workspace
+      - run:
+          name: Read selected backend from S3 and fix format
+          command: |
+            S3_BUCKET_URL="https://selected-backend-ephemeral-env.s3.me-south-1.amazonaws.com/selected-backend.txt"
+
+            # Download selected backend from S3
+            curl -s -f -o /tmp/workspace/selected-backend.txt $S3_BUCKET_URL
+
+            # Debug: Check if the file is downloaded properly
+            echo "📂 Checking file contents:"
+            ls -lah /tmp/workspace/selected-backend.txt  # Check if file exists
+            cat /tmp/workspace/selected-backend.txt  # Print the contents
+
+            # Read the downloaded backend
+            if [ -s "/tmp/workspace/selected-backend.txt" ]; then
+              SELECTED_BACKEND=$(cat /tmp/workspace/selected-backend.txt)
+
+              # Fix the format if needed
+              if [[ $SELECTED_BACKEND =~ ^be-([0-9]+)\.eph\.digitalzone-dev\.net$ ]]; then
+                FORMATTED_BACKEND="be-pr-${BASH_REMATCH[1]}.eph.digitalzone-dev.net"
+                echo "🛠 Fixing format: $SELECTED_BACKEND → $FORMATTED_BACKEND"
+                echo "$FORMATTED_BACKEND" > /tmp/workspace/selected-backend.txt
+              else
+                echo "✅ Backend format is correct: $SELECTED_BACKEND"
+              fi
+            else
+              # If no selection found, fallback to the default backend
+              SELECTED_BACKEND="<< pipeline.parameters.backend_service >>"
+              echo "❌ No selection found in S3, using default: $SELECTED_BACKEND"
+              echo "$SELECTED_BACKEND" > /tmp/workspace/selected-backend.txt
+            fi
+
+            echo "🔹 Final selected backend: $(cat /tmp/workspace/selected-backend.txt)"
+      - persist_to_workspace:
+          root: /tmp/workspace
+          paths:
+            - selected-backend.txt
+
+
   plan:
     executor: terraform-executor
     steps:
       - checkout
       - setup_ephemeral_repo
-      - run:
-          name: Terraform Init (DynamoDb Only)
-          command: |
-            cd ephemeral/terraform/stages/ephemeral
-            terraform init \
-              -backend-config="key=ephemeral-environments/pr-<< pipeline.parameters.pr_number >>/terraform.tfstate" \
-              -backend-config="dynamodb_table=dz-eph-pr-<< pipeline.parameters.pr_number >>-locks"
-      - run:
-          name: Create DynamoDB Table
-          command: |
-            cd ephemeral/terraform/stages/ephemeral
-            terraform apply -var-file="terraform.ephemeral.tfvars" -var="pr_number=<< pipeline.parameters.pr_number >>" -target=aws_dynamodb_table.locks -auto-approve -lock=false
-
+    #   - run:
+    #       name: Terraform Init (DynamoDb Only)
+    #       command: |
+    #         cd ephemeral/terraform/stages/ephemeral
+    #         terraform init \
+    #           -backend-config="key=ephemeral-environments/pr-<< pipeline.parameters.pr_number >>/terraform.tfstate" \
+    #           -backend-config="dynamodb_table=dz-eph-pr-<< pipeline.parameters.pr_number >>-locks"
+    #   - run:
+    #       name: Create DynamoDB Table
+    #       command: |
+    #         cd ephemeral/terraform/stages/ephemeral
+    #         terraform apply -var-file="terraform.ephemeral.tfvars" -var="pr_number=<< pipeline.parameters.pr_number >>" -target=aws_dynamodb_table.locks -auto-approve -lock=false
       - terraform_init
       - terraform_plan
       - persist_to_workspace:
-          root: ~/project/ephemeral/terraform/stages
+          root: ~/project/ephemeral/terraform/stages/21_dz_ephemeral_apps
           paths:
-            - ephemeral/.terraform
-            - ephemeral/tfplan
-            - ephemeral/*.tf
-            - ephemeral/*.tfvars
+            - dz_be/.terraform
+            - dz_be/tfplan
+            - dz_be/*.tf
+            - dz_be/*.tfvars
 
   create_schema:
     executor: node-executor
@@ -280,9 +377,10 @@ jobs:
     executor: terraform-executor
     steps:
       - checkout
+      - setup_ephemeral_repo
       - attach_workspace:
-          at: ~/project/ephemeral
-      - decrypt_env_and_upload
+          at: ~/project/dz_be
+      # - decrypt_env_and_upload
       - terraform_init
       - terraform_plan
       - terraform_apply
@@ -297,6 +395,7 @@ jobs:
     executor: terraform-executor
     steps:
       - checkout
+      - setup_ephemeral_repo
       - attach_workspace:
           at: terraform
       - terraform_init
@@ -377,47 +476,57 @@ workflows:
   version: 2
   ephemeral-pipeline:
     jobs:
-      - hold:
+      - fetch-backends:
+          context: aws-creds
+      - select-backend:
           type: approval
-          description: "Select the backend service before deploying the frontend"
+          requires:
+            - fetch-backends
+          context: aws-creds
+      - capture-selection:
+          requires:
+            - select-backend
+          context: aws-creds
       - plan:
+          requires:
+            - capture-selection
           context: aws-creds
       - hold_for_schema_infrastructure_creation:
           type: approval
           requires:
             - plan
-      - create_schema:
+      # - create_schema:
+      #     requires:
+      #       - hold_for_schema_infrastructure_creation
+      #     context: aws-creds
+      - apply:
           requires:
             - hold_for_schema_infrastructure_creation
           context: aws-creds
-      - apply:
-          requires:
-            - create_schema
-          context: aws-creds
-      - hold_for_deploy_to_ecs:  
-          type: approval
-          requires:
-            - apply
-          # filters:
-          #   branches:
-          #     only: fix/add-ephe-env-in-steps
-      - build_app:
-          name: build and push app (ephemeral)
-          context: aws-creds  
-          requires:
-            - hold_for_deploy_to_ecs
-          # filters:
-          #   branches:
-          #     only: fix/add-ephe-env-in-steps
-      - deploy_to_ecs:
-          name: deploy app (ephemeral)
-          context: aws-creds
-          requires:
-            - build and push app (ephemeral)
+      # - hold_for_deploy_to_ecs:  
+      #     type: approval
+      #     requires:
+      #       - apply
+      #     # filters:
+      #     #   branches:
+      #     #     only: fix/add-ephe-env-in-steps
+      # - build_app:
+      #     name: build and push app (ephemeral)
+      #     context: aws-creds  
+      #     requires:
+      #       - hold_for_deploy_to_ecs
+      #     # filters:
+      #     #   branches:
+      #     #     only: fix/add-ephe-env-in-steps
+      # - deploy_to_ecs:
+      #     name: deploy app (ephemeral)
+      #     context: aws-creds
+      #     requires:
+      #       - build and push app (ephemeral)
       - hold_for_cleanup:
           type: approval
           requires:
-            - deploy app (ephemeral)
+            - apply
       - cleanup_schema:
           requires:
             - hold_for_cleanup
