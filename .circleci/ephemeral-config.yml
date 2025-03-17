@@ -255,7 +255,7 @@ jobs:
             echo "$BACKEND_SERVICES" > /tmp/workspace/available-backends.txt
 
             # Copy the HTML file from the repo to CircleCI workspace
-            cp backend-selector.html /tmp/workspace/
+            cp ephemeral-backend-switcher/backend-selector.html /tmp/workspace/
             
       - store_artifacts:
           path: /tmp/workspace
