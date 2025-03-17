@@ -175,14 +175,27 @@ commands:
           name: "Terraform Destroy"
           command: |
             cd ephemeral/terraform/stages/21_dz_ephemeral_apps/dz_fe
-
-            PR_NUMBER="<< pipeline.parameters.pr_number >>"
-            COMMIT_SHA="<< pipeline.parameters.commit_sha >>"
-
-            terraform destroy -auto-approve \
-              -var-file="terraform.ephemeral.tfvars" \
-              -var="pr_number=${PR_NUMBER}" \
-              -var="commit_sha=${COMMIT_SHA}"
+            
+            # Determine which variable to pass
+            if [ -n "${CIRCLE_PULL_REQUEST}" ] || [ -n "<< pipeline.parameters.pr_number >>" ]; then
+              # We have a PR number, use it
+              if [ -n "${CIRCLE_PULL_REQUEST}" ]; then
+                PR_NUMBER="${CIRCLE_PULL_REQUEST##*/}"
+              else
+                PR_NUMBER="<< pipeline.parameters.pr_number >>"
+              fi
+              
+              echo "Using PR number: $PR_NUMBER"
+              terraform destroy -auto-approve \
+                -var-file="terraform.ephemeral.tfvars" \
+                -var="pr_number=${PR_NUMBER}"
+            else
+              # No PR number, use commit SHA
+              echo "Using commit SHA: << pipeline.parameters.commit_sha >>"
+              terraform destroy -auto-approve \
+                -var-file="terraform.ephemeral.tfvars" \
+                -var="commit_sha=<< pipeline.parameters.commit_sha >>"
+            fi
 
 
 
