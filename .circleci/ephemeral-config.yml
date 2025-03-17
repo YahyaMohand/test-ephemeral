@@ -19,7 +19,7 @@ parameters:
     default: ${CIRCLE_BRANCH}
   commit_sha:
     type: string
-    default: ${CIRCLE_SHA1}
+    default: ${CIRCLE_SHA1:0:7}
 
 
 executors:
@@ -134,14 +134,19 @@ commands:
           command: |
             cd ephemeral/terraform/stages/21_dz_ephemeral_apps/dz_fe
 
-            PR_NUMBER="<< pipeline.parameters.pr_number >>"
-            COMMIT_SHA="<< pipeline.parameters.commit_sha >>"
+            # Check if pr_number is empty and fallback to commit_sha
+            if [ -z "<< pipeline.parameters.pr_number >>" ]; then
+              PR_NUMBER="commit-<< pipeline.parameters.commit_sha >>"
+            else
+              PR_NUMBER="pr-<< pipeline.parameters.pr_number >>"
+            fi
 
             terraform plan \
               -var-file="terraform.ephemeral.tfvars" \
-              # -var="pr_number=${PR_NUMBER}" \
-              -var="commit_sha=${COMMIT_SHA}" \
+              -var="pr_number=${PR_NUMBER}" \
+              -var="commit_sha=<< pipeline.parameters.commit_sha >>" \
               -out=tfplan
+
 
 
   terraform_apply:
