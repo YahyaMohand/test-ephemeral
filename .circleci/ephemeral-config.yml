@@ -512,14 +512,14 @@ workflows:
           type: approval
           requires:
             - plan
-      # - create_schema:
-      #     requires:
-      #       - hold_for_schema_infrastructure_creation
-      #     context: aws-creds
-      - apply:
+      - create_schema:
           requires:
             - hold_for_schema_infrastructure_creation
           context: aws-creds
+      # - apply:
+      #     requires:
+      #       - hold_for_schema_infrastructure_creation
+      #     context: aws-creds
       # - hold_for_deploy_to_ecs:  
       #     type: approval
       #     requires:
