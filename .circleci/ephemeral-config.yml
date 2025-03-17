@@ -114,8 +114,13 @@ commands:
           name: "Terraform Init"
           command: |
             cd ephemeral/terraform/stages/21_dz_ephemeral_apps/dz_fe
+
+            PR_NUMBER="<< pipeline.parameters.pr_number >>"
+            if [ -z "$PR_NUMBER" ]; then
+              PR_NUMBER=$(echo "$CIRCLE_SHA1" | cut -c1-7)
+            fi
             terraform init \
-              -backend-config="key=ephemeral-environments/pr-<< pipeline.parameters.pr_number >>/terraform.tfstate"
+              -backend-config="key=ephemeral-environments/pr-${PR_NUMBER}/terraform.tfstate"
 
   terraform_plan:
     description: "Run Terraform Plan"
