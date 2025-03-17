@@ -129,9 +129,15 @@ commands:
           name: "Terraform Plan"
           command: |
             cd ephemeral/terraform/stages/21_dz_ephemeral_apps/dz_fe
+
+            PR_NUMBER="<< pipeline.parameters.pr_number >>"
+            if [ -z "$PR_NUMBER" ]; then
+              PR_NUMBER=$(echo "$CIRCLE_SHA1" | cut -c1-7)
+            fi
+
             terraform plan \
               -var-file="terraform.ephemeral.tfvars" \
-              -var="pr_number=<< pipeline.parameters.pr_number >>" \
+              -var="pr_number=${PR_NUMBER}" \
               -out=tfplan
 
   terraform_apply:
@@ -150,9 +156,15 @@ commands:
           name: "Terraform Destroy"
           command: |
             cd ephemeral/terraform/stages/21_dz_ephemeral_apps/dz_fe
+
+            PR_NUMBER="<< pipeline.parameters.pr_number >>"
+            if [ -z "$PR_NUMBER" ]; then
+              PR_NUMBER=$(echo "$CIRCLE_SHA1" | cut -c1-7)
+            fi
+
             terraform destroy -auto-approve \
               -var-file="terraform.ephemeral.tfvars" \
-              -var="pr_number=<< pipeline.parameters.pr_number >>"
+              -var="pr_number=${PR_NUMBER}"
 
   setup_db_tools:
     description: "Install AWS CLI, SSM, and PostgreSQL Client"
