@@ -231,18 +231,18 @@ commands:
               echo $SESSION_ID > /tmp/ssm_session_id
 
               if [ -z "<< pipeline.parameters.pr_number >>" ]; then
-                PR_NUMBER=$(echo "$CIRCLE_SHA1" | cut -c1-7)
+                PR_IDENTIFIER="commit-<< pipeline.parameters.commit_sha >>"
               else
-                PR_NUMBER=$(basename << pipeline.parameters.pr_number >>)
+                PR_IDENTIFIER="pr-<< pipeline.parameters.pr_number >>"
               fi
 
               if [ "<< parameters.action >>" = "create" ]; then
                 # Create schema
                 PGPASSWORD="$DB_PASSWORD" psql -h localhost -p 5432 -U $DB_USER -d $DB_NAME \
-                  -c "CREATE SCHEMA IF NOT EXISTS pr_$PR_NUMBER;"
+                  -c "CREATE SCHEMA IF NOT EXISTS ${PR_IDENTIFIER};"
                 
                 # Set DATABASE_URL environment variable for Prisma
-                export DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@localhost:5432/$DB_NAME?schema=pr_$PR_NUMBER"
+                export DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@localhost:5432/$DB_NAME?schema=${PR_IDENTIFIER}"
                 
                 # Run Prisma migrations with explicit schema path
                 echo "Running Prisma migrations..."
