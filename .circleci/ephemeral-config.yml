@@ -133,18 +133,28 @@ commands:
           name: "Terraform Plan"
           command: |
             cd ephemeral/terraform/stages/21_dz_ephemeral_apps/dz_fe
-
-            # Check if pr_number is empty and fallback to commit_sha
-            if [ -z "<< pipeline.parameters.pr_number >>" ]; then
-              PR_NUMBER="commit-<< pipeline.parameters.commit_sha >>"
+            
+            # Determine which variable to pass
+            if [ -n "${CIRCLE_PULL_REQUEST}" ] || [ -n "<< pipeline.parameters.pr_number >>" ]; then
+              # We have a PR number, use it
+              if [ -n "${CIRCLE_PULL_REQUEST}" ]; then
+                PR_NUMBER="${CIRCLE_PULL_REQUEST##*/}"
+              else
+                PR_NUMBER="<< pipeline.parameters.pr_number >>"
+              fi
+              
+              echo "Using PR number: $PR_NUMBER"
+              TERRAFORM_VARS="-var=\"pr_number=${PR_NUMBER}\""
             else
-              PR_NUMBER="pr-<< pipeline.parameters.pr_number >>"
+              # No PR number, use commit SHA
+              echo "Using commit SHA: << pipeline.parameters.commit_sha >>"
+              TERRAFORM_VARS="-var=\"commit_sha=<< pipeline.parameters.commit_sha >>\""
             fi
-
+            
+            # Run Terraform plan with the appropriate variable
             terraform plan \
               -var-file="terraform.ephemeral.tfvars" \
-              -var="pr_number=${PR_NUMBER}" \
-              -var="commit_sha=<< pipeline.parameters.commit_sha >>" \
+              ${TERRAFORM_VARS} \
               -out=tfplan
 
 
