@@ -139,7 +139,7 @@ commands:
 
             terraform plan \
               -var-file="terraform.ephemeral.tfvars" \
-              -var="pr_number=${PR_NUMBER}" \
+              # -var="pr_number=${PR_NUMBER}" \
               -var="commit_sha=${COMMIT_SHA}" \
               -out=tfplan
 
@@ -502,20 +502,20 @@ workflows:
   version: 2
   ephemeral-pipeline:
     jobs:
-      - fetch-backends:
-          context: aws-creds
-      - select-backend:
-          type: approval
-          requires:
-            - fetch-backends
-          context: aws-creds
-      - capture-selection:
-          requires:
-            - select-backend
-          context: aws-creds
+      # - fetch-backends:
+      #     context: aws-creds
+      # - select-backend:
+      #     type: approval
+      #     requires:
+      #       - fetch-backends
+      #     context: aws-creds
+      # - capture-selection:
+      #     requires:
+      #       - select-backend
+      #     context: aws-creds
       - plan:
-          requires:
-            - capture-selection
+          # requires:
+          #   - capture-selection
           context: aws-creds
       - hold_for_schema_infrastructure_creation:
           type: approval
