@@ -136,14 +136,17 @@ commands:
 
             if [ -z "<< pipeline.parameters.pr_number >>" ]; then
               SHORT_COMMIT=$(echo "<< pipeline.parameters.commit_sha >>" | cut -c1-7)
-              IDENTIFIER="commit-${SHORT_COMMIT}"
+              PR_NUMBER=""
+              COMMIT_SHA="commit-${SHORT_COMMIT}"
             else
-              IDENTIFIER="pr-<< pipeline.parameters.pr_number >>"
+              PR_NUMBER="pr-<< pipeline.parameters.pr_number >>"
+              COMMIT_SHA=""
             fi
 
             terraform plan \
               -var-file="terraform.ephemeral.tfvars" \
-              -var="identifier=${IDENTIFIER}" \
+              -var="pr_number=${PR_NUMBER}" \
+              -var="commit_sha=${COMMIT_SHA}" \
               -out=tfplan
 
   terraform_apply:
@@ -165,14 +168,17 @@ commands:
 
             if [ -z "<< pipeline.parameters.pr_number >>" ]; then
               SHORT_COMMIT=$(echo "<< pipeline.parameters.commit_sha >>" | cut -c1-7)
-              IDENTIFIER="commit-${SHORT_COMMIT}"
+              PR_NUMBER=""
+              COMMIT_SHA="commit-${SHORT_COMMIT}"
             else
-              IDENTIFIER="pr-<< pipeline.parameters.pr_number >>"
+              PR_NUMBER="pr-<< pipeline.parameters.pr_number >>"
+              COMMIT_SHA=""
             fi
 
             terraform destroy -auto-approve \
               -var-file="terraform.ephemeral.tfvars" \
-              -var="identifier=${IDENTIFIER}"
+              -var="pr_number=${PR_NUMBER}" \
+              -var="commit_sha=${COMMIT_SHA}"
 
 
   setup_db_tools:
