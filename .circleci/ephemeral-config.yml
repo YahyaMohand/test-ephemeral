@@ -555,7 +555,7 @@ workflows:
             - apply
       - cleanup_schema:
           requires:
-            - apply
+            - hold_for_cleanup
           context: aws-creds
       - cleanup:
           requires:
