@@ -114,13 +114,14 @@ commands:
           name: "Terraform Init"
           command: |
             cd ephemeral/terraform/stages/21_dz_ephemeral_apps/dz_fe
-
-            PR_NUMBER="<< pipeline.parameters.pr_number >>"
-            if [ -z "$PR_NUMBER" ]; then
-              PR_NUMBER=$(echo "$CIRCLE_SHA1" | cut -c1-7)
+            if [ -z "<< pipeline.parameters.pr_number >>" ]; then
+              SHORT_COMMIT=$(echo "$CIRCLE_SHA1" | cut -c1-7)
+              ENV_PREFIX="commit-${SHORT_COMMIT}"
+            else
+              ENV_PREFIX="pr-<< pipeline.parameters.pr_number >>"
             fi
             terraform init \
-              -backend-config="key=ephemeral-environments/pr-${PR_NUMBER}/terraform.tfstate"
+              -backend-config="key=ephemeral-environments/${ENV_PREFIX}/terraform.tfstate"
 
   terraform_plan:
     description: "Run Terraform Plan"
@@ -130,14 +131,16 @@ commands:
           command: |
             cd ephemeral/terraform/stages/21_dz_ephemeral_apps/dz_fe
 
-            PR_NUMBER="<< pipeline.parameters.pr_number >>"
-            if [ -z "$PR_NUMBER" ]; then
-              PR_NUMBER=$(echo "$CIRCLE_SHA1" | cut -c1-7)
+            if [ -z "<< pipeline.parameters.pr_number >>" ]; then
+              SHORT_COMMIT=$(echo "$CIRCLE_SHA1" | cut -c1-7)
+              ENV_PREFIX="commit-${SHORT_COMMIT}"
+            else
+              ENV_PREFIX="pr-<< pipeline.parameters.pr_number >>"
             fi
 
             terraform plan \
               -var-file="terraform.ephemeral.tfvars" \
-              -var="pr_number=${PR_NUMBER}" \
+              -var="pr_number=${ENV_PREFIX}" \
               -out=tfplan
 
   terraform_apply:
@@ -157,14 +160,16 @@ commands:
           command: |
             cd ephemeral/terraform/stages/21_dz_ephemeral_apps/dz_fe
 
-            PR_NUMBER="<< pipeline.parameters.pr_number >>"
-            if [ -z "$PR_NUMBER" ]; then
-              PR_NUMBER=$(echo "$CIRCLE_SHA1" | cut -c1-7)
+            if [ -z "<< pipeline.parameters.pr_number >>" ]; then
+              SHORT_COMMIT=$(echo "$CIRCLE_SHA1" | cut -c1-7)
+              ENV_PREFIX="commit-${SHORT_COMMIT}"
+            else
+              ENV_PREFIX="pr-<< pipeline.parameters.pr_number >>"
             fi
 
             terraform destroy -auto-approve \
               -var-file="terraform.ephemeral.tfvars" \
-              -var="pr_number=${PR_NUMBER}"
+              -var="pr_number=${ENV_PREFIX}"
 
   setup_db_tools:
     description: "Install AWS CLI, SSM, and PostgreSQL Client"
@@ -421,30 +426,30 @@ jobs:
           at: terraform
       - terraform_init
       - terraform_destroy
-      - run:
-          name: Install GitHub CLI
-          command: |
-            apk add --no-cache curl
+      # - run:
+      #     name: Install GitHub CLI
+      #     command: |
+      #       apk add --no-cache curl
 
-            curl -fsSL https://github.com/cli/cli/releases/download/v2.40.1/gh_2.40.1_linux_amd64.tar.gz -o gh.tar.gz
-            tar -xzf gh.tar.gz
-            mv gh_*_linux_amd64/bin/gh /usr/local/bin/gh
+      #       curl -fsSL https://github.com/cli/cli/releases/download/v2.40.1/gh_2.40.1_linux_amd64.tar.gz -o gh.tar.gz
+      #       tar -xzf gh.tar.gz
+      #       mv gh_*_linux_amd64/bin/gh /usr/local/bin/gh
 
-            rm -rf gh.tar.gz gh_*_linux_amd64
-      - run:
-          name: Merge PR to Main
-          command: |
-            unset GITHUB_TOKEN
+      #       rm -rf gh.tar.gz gh_*_linux_amd64
+      # - run:
+      #     name: Merge PR to Main
+      #     command: |
+      #       unset GITHUB_TOKEN
 
-            echo $GITHUB_TOKEN | gh auth login --with-token
+      #       echo $GITHUB_TOKEN | gh auth login --with-token
 
-            PR_NUMBER=$(gh pr list --state open --head $CIRCLE_BRANCH --json number --jq '.[0].number')
+      #       PR_NUMBER=$(gh pr list --state open --head $CIRCLE_BRANCH --json number --jq '.[0].number')
 
-            if [ -n "$PR_NUMBER" ]; then
-              gh pr merge $PR_NUMBER --squash --delete-branch
-            else
-              echo "No open PR found for branch $CIRCLE_BRANCH"
-            fi
+      #       if [ -n "$PR_NUMBER" ]; then
+      #         gh pr merge $PR_NUMBER --squash --delete-branch
+      #       else
+      #         echo "No open PR found for branch $CIRCLE_BRANCH"
+      #       fi
   
   build_app:
     executor: aws-ecr/default
@@ -520,10 +525,10 @@ workflows:
           requires:
             - hold_for_schema_infrastructure_creation
           context: aws-creds
-      # - apply:
-      #     requires:
-      #       - hold_for_schema_infrastructure_creation
-      #     context: aws-creds
+      - apply:
+          requires:
+            - hold_for_schema_infrastructure_creation
+          context: aws-creds
       # - hold_for_deploy_to_ecs:  
       #     type: approval
       #     requires:
@@ -544,13 +549,13 @@ workflows:
       #     context: aws-creds
       #     requires:
       #       - build and push app (ephemeral)
-      # - hold_for_cleanup:
-      #     type: approval
-      #     requires:
-      #       - apply
+      - hold_for_cleanup:
+          type: approval
+          requires:
+            - apply
       - cleanup_schema:
           requires:
-            - create_schema
+            - apply
           context: aws-creds
       - cleanup:
           requires:
