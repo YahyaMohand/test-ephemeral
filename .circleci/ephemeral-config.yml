@@ -225,7 +225,11 @@ commands:
               SESSION_ID=$(aws ssm describe-sessions --region me-south-1 --state Active --filter "key=Target, value=$INSTANCE_ID" --query "Sessions[0].SessionId" --output text)
               echo $SESSION_ID > /tmp/ssm_session_id
 
-              PR_NUMBER=$(basename << pipeline.parameters.pr_number >>)
+              if [ -z "<< pipeline.parameters.pr_number >>" ]; then
+                PR_NUMBER=$(echo "$CIRCLE_SHA1" | cut -c1-7)
+              else
+                PR_NUMBER=$(basename << pipeline.parameters.pr_number >>)
+              fi
 
               if [ "<< parameters.action >>" = "create" ]; then
                 # Create schema
@@ -540,13 +544,13 @@ workflows:
       #     context: aws-creds
       #     requires:
       #       - build and push app (ephemeral)
-      - hold_for_cleanup:
-          type: approval
-          requires:
-            - apply
+      # - hold_for_cleanup:
+      #     type: approval
+      #     requires:
+      #       - apply
       - cleanup_schema:
           requires:
-            - hold_for_cleanup
+            - create_schema
           context: aws-creds
       - cleanup:
           requires:
