@@ -17,6 +17,9 @@ parameters:
   pr_branch:
     type: string
     default: ${CIRCLE_BRANCH}
+  commit_sha:
+    type: string
+    default: ${CIRCLE_SHA1}
 
 
 executors:
@@ -132,15 +135,15 @@ commands:
             cd ephemeral/terraform/stages/21_dz_ephemeral_apps/dz_fe
 
             if [ -z "<< pipeline.parameters.pr_number >>" ]; then
-              SHORT_COMMIT=$(echo "$CIRCLE_SHA1" | cut -c1-7)
-              ENV_PREFIX="commit-${SHORT_COMMIT}"
+              SHORT_COMMIT=$(echo "<< pipeline.parameters.commit_sha >>" | cut -c1-7)
+              IDENTIFIER="commit-${SHORT_COMMIT}"
             else
-              ENV_PREFIX="pr-<< pipeline.parameters.pr_number >>"
+              IDENTIFIER="pr-<< pipeline.parameters.pr_number >>"
             fi
 
             terraform plan \
               -var-file="terraform.ephemeral.tfvars" \
-              -var="pr_number=${ENV_PREFIX}" \
+              -var="identifier=${IDENTIFIER}" \
               -out=tfplan
 
   terraform_apply:
@@ -161,15 +164,16 @@ commands:
             cd ephemeral/terraform/stages/21_dz_ephemeral_apps/dz_fe
 
             if [ -z "<< pipeline.parameters.pr_number >>" ]; then
-              SHORT_COMMIT=$(echo "$CIRCLE_SHA1" | cut -c1-7)
-              ENV_PREFIX="commit-${SHORT_COMMIT}"
+              SHORT_COMMIT=$(echo "<< pipeline.parameters.commit_sha >>" | cut -c1-7)
+              IDENTIFIER="commit-${SHORT_COMMIT}"
             else
-              ENV_PREFIX="pr-<< pipeline.parameters.pr_number >>"
+              IDENTIFIER="pr-<< pipeline.parameters.pr_number >>"
             fi
 
             terraform destroy -auto-approve \
               -var-file="terraform.ephemeral.tfvars" \
-              -var="pr_number=${ENV_PREFIX}"
+              -var="identifier=${IDENTIFIER}"
+
 
   setup_db_tools:
     description: "Install AWS CLI, SSM, and PostgreSQL Client"
