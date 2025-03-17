@@ -144,18 +144,18 @@ commands:
               fi
               
               echo "Using PR number: $PR_NUMBER"
-              TERRAFORM_VARS="-var=\"pr_number=${PR_NUMBER}\""
+              terraform plan \
+                -var-file="terraform.ephemeral.tfvars" \
+                -var="pr_number=${PR_NUMBER}" \
+                -out=tfplan
             else
               # No PR number, use commit SHA
               echo "Using commit SHA: << pipeline.parameters.commit_sha >>"
-              TERRAFORM_VARS="-var=\"commit_sha=<< pipeline.parameters.commit_sha >>\""
+              terraform plan \
+                -var-file="terraform.ephemeral.tfvars" \
+                -var="commit_sha=<< pipeline.parameters.commit_sha >>" \
+                -out=tfplan
             fi
-            
-            # Run Terraform plan with the appropriate variable
-            terraform plan \
-              -var-file="terraform.ephemeral.tfvars" \
-              ${TERRAFORM_VARS} \
-              -out=tfplan
 
 
 
