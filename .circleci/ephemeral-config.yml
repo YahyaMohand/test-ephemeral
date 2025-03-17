@@ -259,9 +259,9 @@ commands:
               echo $SESSION_ID > /tmp/ssm_session_id
 
               if [ -z "<< pipeline.parameters.pr_number >>" ]; then
-                PR_IDENTIFIER="commit-<< pipeline.parameters.commit_sha >>"
+                PR_IDENTIFIER="commit_<< pipeline.parameters.commit_sha >>"
               else
-                PR_IDENTIFIER="pr-<< pipeline.parameters.pr_number >>"
+                PR_IDENTIFIER="pr_<< pipeline.parameters.pr_number >>"
               fi
 
               if [ "<< parameters.action >>" = "create" ]; then
