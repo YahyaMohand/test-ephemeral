@@ -147,7 +147,7 @@ commands:
             cd ephemeral/terraform/stages/21_dz_ephemeral_apps/dz_be
             terraform destroy -auto-approve \
               -var-file="terraform.ephemeral.tfvars" \
-              -var="pr_number=<< pipeline.parameters.pr_number >>" \
+              -var="pr_number=<< pipeline.parameters.pr_number >>"
 
   setup_db_tools:
     description: "Install AWS CLI, SSM, and PostgreSQL Client"
